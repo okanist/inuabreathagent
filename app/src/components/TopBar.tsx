@@ -10,9 +10,10 @@ interface TopBarProps {
     isPregnant?: boolean;
     onTogglePregnancy?: () => void;
     onReset?: () => void;
+    onToggleNightMode?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ title = 'INUA', isNightMode, isPregnant, onTogglePregnancy, onReset }) => {
+export const TopBar: React.FC<TopBarProps> = ({ title = 'INUA', isNightMode, isPregnant, onTogglePregnancy, onReset, onToggleNightMode }) => {
     return (
         <View style={styles.container}>
             <View style={styles.content}>
@@ -40,7 +41,10 @@ export const TopBar: React.FC<TopBarProps> = ({ title = 'INUA', isNightMode, isP
                         </TouchableOpacity>
                     )}
 
-                    <View style={styles.pillContainer}>
+                    <TouchableOpacity
+                        style={styles.pillContainer}
+                        onPress={onToggleNightMode}
+                    >
                         <Ionicons
                             name={isNightMode ? "moon" : "sunny"}
                             size={14}
@@ -50,7 +54,7 @@ export const TopBar: React.FC<TopBarProps> = ({ title = 'INUA', isNightMode, isP
                         <Text style={styles.pillText}>
                             {isNightMode ? 'NIGHT' : 'DAY'}
                         </Text>
-                    </View>
+                    </TouchableOpacity>
                 </View>
             </View>
         </View>

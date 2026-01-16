@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, ScrollView, TouchableOpacity, Alert, Keyboard, AppState } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, ScrollView, TouchableOpacity, Alert, Keyboard, AppState, Image } from 'react-native';
+
 import { TopBar } from '../src/components/TopBar';
 import { BreathingOrb } from '../src/components/BreathingOrb';
 import { ChatInput } from '../src/components/ChatInput';
@@ -60,32 +60,34 @@ export default function HomeScreen() {
         paddingBottom: bottomPadding.value
     }));
 
+    // Use ref for insets to avoid re-attaching listeners
+    const insetsRef = React.useRef(insets.bottom);
+    useEffect(() => {
+        insetsRef.current = insets.bottom;
+    }, [insets.bottom]);
+
     useEffect(() => {
         const keyboardDidShowListener = Keyboard.addListener(
             'keyboardDidShow',
             (e) => {
                 const height = e.endCoordinates.height;
-
-                // MIUI bug: sometimes fires with height=0, ignore these events
+                // MIUI bug check
                 if (height > 50) {
                     setKeyboardVisible(true);
                     setKeyboardHeight(height);
                     if (Platform.OS === 'android') {
                         // User requested input to be higher (387 vs 434 -> ~47px difference)
-                        // This matches insets.bottom (approx 47px)
-                        // Add insets.bottom to the total padding
-                        const safeInset = insets.bottom > 0 ? insets.bottom : 0;
+                        // Use ref to get latest insets without re-running effect
+                        const currentBottom = insetsRef.current;
+                        const safeInset = currentBottom > 0 ? currentBottom : 0;
                         bottomPadding.value = withTiming(height + 20 + safeInset, { duration: 100 });
                     }
-                } else {
-                    // console.log('Ignoring invalid keyboard height:', height);
                 }
             }
         );
         const keyboardDidHideListener = Keyboard.addListener(
             'keyboardDidHide',
             () => {
-                console.log('=== KEYBOARD DID HIDE ===');
                 setKeyboardVisible(false);
                 setKeyboardHeight(0);
                 if (Platform.OS === 'android') {
@@ -107,7 +109,7 @@ export default function HomeScreen() {
             keyboardDidShowListener.remove();
             appStateListener.remove();
         };
-    }, [insets.bottom]);
+    }, []);
 
     // Breathing hook
     const { phase, instruction, isActive, toggle, stop } = useBreathing({ pattern: currentPattern });
@@ -184,13 +186,42 @@ export default function HomeScreen() {
         );
     };
 
-    const getGradientColors = () => {
+    const renderBackground = () => {
         if (isPregnant) {
-            return ['#E0C3FC', '#F8C8DC'] as const; // Soft Lilac/Pink
+            return (
+                <>
+                    <Image
+                        source={require('../assets/images/bgpregnant.png')}
+                        style={styles.background}
+                        resizeMode="cover"
+                    />
+                    <View style={[styles.background, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
+                </>
+            );
         }
-        return isNightMode
-            ? [THEME.colors.background, '#2D1B4E'] as const
-            : ['#4A90E2', '#87CEFA'] as const;
+        if (isNightMode) {
+            return (
+                <>
+                    <Image
+                        source={require('../assets/images/bgnight.png')}
+                        style={styles.background}
+                        resizeMode="cover"
+                    />
+                    <View style={[styles.background, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+                </>
+            );
+        }
+        // Day mode fallback
+        return (
+            <>
+                <Image
+                    source={require('../assets/images/bgday.png')}
+                    style={styles.background}
+                    resizeMode="cover"
+                />
+                <View style={[styles.background, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
+            </>
+        );
     };
 
     const renderChatContent = () => (
@@ -243,18 +274,14 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={getGradientColors()}
-                style={styles.background}
-            />
-
-
+            {renderBackground()}
 
             <TopBar
                 isNightMode={isNightMode}
                 isPregnant={isPregnant}
                 onTogglePregnancy={() => setIsPregnant(!isPregnant)}
                 onReset={handleReset}
+                onToggleNightMode={() => setIsNightMode(!isNightMode)}
             />
 
             {Platform.OS === 'ios' ? (
@@ -323,6 +350,8 @@ const styles = StyleSheet.create({
     },
     background: {
         ...StyleSheet.absoluteFillObject,
+        width: '100%',
+        height: '100%',
     },
     scrollContent: {
         flexGrow: 1,
