@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, Scr
 
 import { TopBar } from '../src/components/TopBar';
 import { BreathingOrb } from '../src/components/BreathingOrb';
+import { PhaseLabel } from '../src/components/PhaseLabel';
 import { ChatInput } from '../src/components/ChatInput';
 import { useBreathing } from '../src/hooks/useBreathing';
 import { analyzeLoad } from '../src/services/api';
@@ -62,12 +63,13 @@ export default function HomeScreen() {
 
     }, [insets.bottom]);
 
-    // Calculate effective bottom padding - always use the maximum to ensure consistency
-    const effectiveBottomPadding = Math.max(safeBottomPadding, insets.bottom, 20);
-    console.log('EffectiveBottomPadding:', Math.round(effectiveBottomPadding), '| InputY:', Math.round(inputY));
+    // Calculate effective bottom padding - use smaller minimum for closer nav bar position
+    const effectiveBottomPadding = Math.max(safeBottomPadding, insets.bottom, 10);
+    // Debug log disabled to reduce noise
+    // console.log('EffectiveBottomPadding:', Math.round(effectiveBottomPadding), '| InputY:', Math.round(inputY));
 
     // Manual Keyboard Animation for Android
-    const bottomPadding = useSharedValue(20);
+    const bottomPadding = useSharedValue(10);
     const androidPaddingStyle = useAnimatedStyle(() => ({
         paddingBottom: bottomPadding.value
     }));
@@ -78,33 +80,45 @@ export default function HomeScreen() {
         insetsRef.current = insets.bottom;
     }, [insets.bottom]);
 
+    // Track max keyboard height for MIUI consistency
+    const maxKeyboardHeightRef = React.useRef(0);
+
+    const hideTimeoutRef = useRef<any>(null);
+
     useEffect(() => {
         const keyboardDidShowListener = Keyboard.addListener(
             'keyboardDidShow',
             (e) => {
+                // Cancel any pending hide
+                if (hideTimeoutRef.current) {
+                    clearTimeout(hideTimeoutRef.current);
+                    hideTimeoutRef.current = null;
+                }
+
                 const height = e.endCoordinates.height;
-                // MIUI bug check
+                console.log('=== KEYBOARD SHOW ===');
+                console.log('Reported height:', height);
+
+                // Use a threshold to filter out noise
                 if (height > 50) {
                     setKeyboardVisible(true);
                     setKeyboardHeight(height);
-                    if (Platform.OS === 'android') {
-                        // User requested input to be higher (387 vs 434 -> ~47px difference)
-                        // Use ref to get latest insets without re-running effect
-                        const currentBottom = insetsRef.current;
-                        const safeInset = currentBottom > 0 ? currentBottom : 0;
-                        bottomPadding.value = withTiming(height + 20 + safeInset, { duration: 100 });
-                    }
+                    bottomPadding.value = height + 10;
                 }
             }
         );
         const keyboardDidHideListener = Keyboard.addListener(
             'keyboardDidHide',
             () => {
-                setKeyboardVisible(false);
-                setKeyboardHeight(0);
-                if (Platform.OS === 'android') {
-                    bottomPadding.value = withTiming(20, { duration: 100 });
-                }
+                // Debounce the hide action
+                if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+
+                hideTimeoutRef.current = setTimeout(() => {
+                    setKeyboardVisible(false);
+                    setKeyboardHeight(0);
+                    bottomPadding.value = 10;
+                    hideTimeoutRef.current = null;
+                }, 300); // 300ms delay
             }
         );
 
@@ -143,19 +157,37 @@ export default function HomeScreen() {
 
     // Timer state for session
     const [elapsedTime, setElapsedTime] = useState(0);
+    const [sessionLimit, setSessionLimit] = useState(180); // Default 3 mins
 
     // Timer Logic
     useEffect(() => {
         let timer: any;
         if (isActive && viewMode === 'session') {
             timer = setInterval(() => {
-                setElapsedTime(prev => prev + 1);
+                setElapsedTime(prev => {
+                    const nextTime = prev + 1;
+                    if (nextTime >= sessionLimit) {
+                        // Session complete
+                        clearInterval(timer);
+                        stop();
+                        // Give moment to see 100% then finish
+                        setTimeout(() => {
+                            Alert.alert("Session Complete", "Great job taking time for yourself.", [
+                                { text: "OK", onPress: handleBackToChat }
+                            ]);
+                        }, 500);
+                        return nextTime;
+                    }
+                    return nextTime;
+                });
             }, 1000);
         }
         return () => {
             if (timer) clearInterval(timer);
         };
-    }, [isActive, viewMode]);
+    }, [isActive, viewMode, sessionLimit]);
+
+    // ...
 
     // Reset timer when entering session
     useEffect(() => {
@@ -167,8 +199,12 @@ export default function HomeScreen() {
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
-        return `${m}:${s < 10 ? '0' : ''}${s}`;
+        const totalM = Math.floor(sessionLimit / 60);
+        const totalS = sessionLimit % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s} / ${totalM}:${totalS < 10 ? '0' : ''}${totalS}`;
     };
+
+
 
     // Initialize/Update Welcome Message based on context
     useEffect(() => {
@@ -266,6 +302,7 @@ export default function HomeScreen() {
             if (response) {
                 setAnalysis(response.analysis);
                 setCurrentPattern(response.intervention.pattern);
+                setSessionLimit(response.intervention.duration_seconds || 180);
             }
         } catch (error) {
             console.error("Analysis failed", error);
@@ -290,22 +327,30 @@ export default function HomeScreen() {
         setAnalysis(null);
     };
 
-    const handleReset = () => {
-        Alert.alert(
-            "Reset App",
-            "Are you sure you want to reset the onboarding flow?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Reset",
-                    style: "destructive",
-                    onPress: async () => {
-                        await AsyncStorage.removeItem('inua_has_onboarded_v1');
-                        router.replace('/onboarding');
+    const handleReset = async () => {
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm("Are you sure you want to reset the onboarding flow?");
+            if (confirmed) {
+                await AsyncStorage.removeItem('inua_has_onboarded_v1');
+                router.replace('/onboarding');
+            }
+        } else {
+            Alert.alert(
+                "Reset App",
+                "Are you sure you want to reset the onboarding flow?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "Reset",
+                        style: "destructive",
+                        onPress: async () => {
+                            await AsyncStorage.removeItem('inua_has_onboarded_v1');
+                            router.replace('/onboarding');
+                        }
                     }
-                }
-            ]
-        );
+                ]
+            );
+        }
     };
 
     const renderBackground = () => {
@@ -396,20 +441,18 @@ export default function HomeScreen() {
 
             {/* Phase Labels */}
             <View style={styles.phaseLabelsContainer}>
-                <Text style={[
-                    styles.phaseLabel,
-                    isActive && (phase === 'inhale' || phase === 'hold-in') && styles.activePhaseLabel
-                ]}>INHALE</Text>
-
-                <Text style={[
-                    styles.phaseLabel,
-                    isActive && (phase === 'exhale' || phase === 'hold-out') && styles.activePhaseLabel
-                ]}>EXHALE</Text>
-
-                <Text style={[
-                    styles.phaseLabel,
-                    !isActive && styles.activePhaseLabel
-                ]}>REST</Text>
+                <PhaseLabel
+                    text="INHALE"
+                    isActive={isActive && (phase === 'inhale' || phase === 'hold-in')}
+                />
+                <PhaseLabel
+                    text="EXHALE"
+                    isActive={isActive && (phase === 'exhale' || phase === 'hold-out')}
+                />
+                <PhaseLabel
+                    text="REST"
+                    isActive={!isActive}
+                />
             </View>
 
             {/* Bottom Controls */}
@@ -444,63 +487,62 @@ export default function HomeScreen() {
                 onToggleNightMode={() => setIsNightMode(!isNightMode)}
             />
 
-            {Platform.OS === 'ios' ? (
-                <KeyboardAvoidingView
-                    behavior="padding"
-                    keyboardVerticalOffset={0}
-                    style={{ flex: 1 }}
-                >
-                    <ScrollView
-                        ref={scrollViewRef}
-                        contentContainerStyle={styles.scrollContent}
-                        keyboardShouldPersistTaps="handled"
-                        scrollEnabled={true}
+            {viewMode === 'session' ? (
+                // Session View - No ScrollView, No Keyboard Handling needed
+                <View style={{ flex: 1, paddingHorizontal: 20 }}>
+                    {renderSessionContent()}
+                </View>
+            ) : (
+                // Chat View - Needs ScrollView and Keyboard Handling
+                Platform.OS === 'ios' ? (
+                    <KeyboardAvoidingView
+                        behavior="padding"
+                        keyboardVerticalOffset={0}
+                        style={{ flex: 1 }}
                     >
-                        {viewMode === 'chat' ? renderChatContent() : renderSessionContent()}
-                    </ScrollView>
+                        <ScrollView
+                            ref={scrollViewRef}
+                            contentContainerStyle={styles.scrollContent}
+                            keyboardShouldPersistTaps="handled"
+                            scrollEnabled={true}
+                        >
+                            {renderChatContent()}
+                        </ScrollView>
 
-                    {viewMode === 'chat' && (
                         <View
                             style={[
                                 styles.inputWrapper,
                                 { paddingBottom: 20 }
                             ]}
-                            onLayout={(e) => setInputY(e.nativeEvent.layout.y)}
                         >
                             <ChatInput onSend={handleSend} isLoading={loading} />
                         </View>
-                    )}
-                </KeyboardAvoidingView>
-            ) : (
-                <Animated.View style={[{ flex: 1 }, androidPaddingStyle]}>
-                    <ScrollView
-                        ref={scrollViewRef}
-                        contentContainerStyle={styles.scrollContent}
-                        keyboardShouldPersistTaps="handled"
-                        scrollEnabled={true}
-                    >
-                        {viewMode === 'chat' ? renderChatContent() : renderSessionContent()}
-                    </ScrollView>
+                    </KeyboardAvoidingView>
+                ) : (
+                    <Animated.View style={[{ flex: 1 }, androidPaddingStyle]}>
+                        <ScrollView
+                            ref={scrollViewRef}
+                            contentContainerStyle={styles.scrollContent}
+                            keyboardShouldPersistTaps="handled"
+                            scrollEnabled={true}
+                        >
+                            {renderChatContent()}
+                        </ScrollView>
 
-                    {viewMode === 'chat' && (
                         <View
                             style={[
                                 styles.inputWrapper,
-                                { paddingBottom: 0 } // Padding handled by Animated.View container
+                                {
+                                    paddingBottom: 4,
+                                    marginBottom: 10
+                                }
                             ]}
-                            onLayout={(e) => setInputY(e.nativeEvent.layout.y)}
                         >
                             <ChatInput onSend={handleSend} isLoading={loading} />
                         </View>
-                    )}
-                </Animated.View>
+                    </Animated.View>
+                )
             )}
-
-            {/* Navigation Bar Spacer - Always rendered to prevent layout jump */}
-            <View style={{
-                height: isKeyboardVisible ? 0 : effectiveBottomPadding,
-                backgroundColor: isPregnant ? '#F8C8DC' : (isNightMode ? '#2D1B4E' : '#87CEFA'),
-            }} />
         </View>
     );
 }
@@ -581,13 +623,13 @@ const styles = StyleSheet.create({
     // ... other styles
     sessionHeader: {
         alignItems: 'center',
-        marginTop: 60,
-        marginBottom: 40,
+        marginTop: 10, // Reduced further
+        marginBottom: 10, // Reduced further
     },
     sessionTitle: {
         fontSize: 24,
         fontWeight: '600',
-        color: '#FFF', // Assuming dark mode or overlay
+        color: '#FFF',
         marginBottom: 8,
     },
     sessionTimer: {
@@ -598,7 +640,7 @@ const styles = StyleSheet.create({
     orbContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        flex: 1, // Take available space
+        flex: 1,
     },
     image: {
         width: 200,
@@ -609,12 +651,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         gap: 40,
-        marginBottom: 60,
+        marginBottom: 20, // Reduced from 40 to bring closer to buttons
     },
     phaseLabel: {
         fontSize: 16,
         fontWeight: '600',
-        color: 'rgba(255,255,255,0.3)', // Inactive color
+        color: 'rgba(255,255,255,0.3)',
         letterSpacing: 1,
     },
     activePhaseLabel: {
@@ -628,13 +670,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 40,
-        marginBottom: 60,
+        gap: 25, // Reduced gap
+        marginBottom: 40,
     },
     roundButton: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 44, // Reduced from 50
+        height: 44,
+        borderRadius: 22,
         backgroundColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
@@ -642,10 +684,10 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.2)',
     },
     playPauseButton: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#FFF', // White for contrast
+        width: 64, // Reduced from 70
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#FFF',
         borderWidth: 0,
     },
     instruction: {

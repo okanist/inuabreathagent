@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, Dimensions, TouchableOpacity, useColorScheme, Platform } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Dimensions, TouchableOpacity, useColorScheme, Platform, LayoutAnimation, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -7,7 +7,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { THEME } from '../src/constants/config';
 import Animated, { FadeInRight, FadeIn } from 'react-native-reanimated';
 
-const { width, height } = Dimensions.get('window');
+if (Platform.OS === 'android') {
+    if (UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+}
+
+// ... imports and constants ...
 
 const SLIDES = [
     {
@@ -33,6 +39,19 @@ const SLIDES = [
 export default function OnboardingScreen() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
+    const [layout, setLayout] = useState({ width: Dimensions.get('window').width, height: Dimensions.get('window').height });
+
+    // Use hardcoded defaults for Web initial render to match wrapper, then update via onLayout
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            setLayout({ width: 375, height: 812 });
+        }
+    }, []);
+
+    // Animate dot change
+    useEffect(() => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, [currentIndex]);
 
     const handleNext = async () => {
         if (currentIndex < SLIDES.length - 1) {
@@ -40,6 +59,7 @@ export default function OnboardingScreen() {
                 index: currentIndex + 1,
                 animated: true,
             });
+            setCurrentIndex(currentIndex + 1);
         } else {
             await completeOnboarding();
         }
@@ -57,7 +77,7 @@ export default function OnboardingScreen() {
 
     const renderItem = ({ item }: { item: typeof SLIDES[0] }) => {
         return (
-            <View style={styles.slide}>
+            <View style={[styles.slide, { width: layout.width, height: layout.height * 0.7 }]}>
                 <View style={styles.iconContainer}>
                     <Ionicons name={item.icon} size={100} color="#FFF" />
                 </View>
@@ -67,10 +87,17 @@ export default function OnboardingScreen() {
         );
     };
 
-    const currentSlide = SLIDES[currentIndex];
-
     return (
-        <View style={styles.container}>
+        <View
+            style={styles.container}
+            onLayout={(e) => {
+                const { width, height } = e.nativeEvent.layout;
+                // Only update if dimensions differ significantly (prevent loops)
+                if (Math.abs(layout.width - width) > 1 || Math.abs(layout.height - height) > 1) {
+                    setLayout({ width, height });
+                }
+            }}
+        >
             <LinearGradient
                 colors={[THEME.colors.background, '#2D1B4E']}
                 style={styles.background}
@@ -85,13 +112,24 @@ export default function OnboardingScreen() {
                 showsHorizontalScrollIndicator={false}
                 bounces={false}
                 onMomentumScrollEnd={(event) => {
-                    const index = Math.round(event.nativeEvent.contentOffset.x / width);
+                    const index = Math.round(event.nativeEvent.contentOffset.x / layout.width);
                     setCurrentIndex(index);
+                }}
+                getItemLayout={(_, index) => ({
+                    length: layout.width,
+                    offset: layout.width * index,
+                    index,
+                })}
+                onScrollToIndexFailed={(info) => {
+                    const wait = new Promise(resolve => setTimeout(resolve, 500));
+                    wait.then(() => {
+                        flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                    });
                 }}
                 keyExtractor={(item) => item.id}
             />
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { height: layout.height * 0.3 }]}>
                 {/* Pagination Dots */}
                 <View style={styles.pagination}>
                     {SLIDES.map((_, index) => (
@@ -125,8 +163,8 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
     },
     slide: {
-        width,
-        height: height * 0.7, // Occupy top 70%
+        width: 300, // Fallback/default, overridden by inline styles
+        // height handled inline
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 40,
@@ -157,7 +195,8 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     footer: {
-        height: height * 0.3,
+        // height handled inline
+        width: '100%',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingVertical: 50,

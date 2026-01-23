@@ -3,10 +3,10 @@ import { Platform } from 'react-native';
 // Replace with your local machine's IP address
 // Use '10.0.2.2' for Android Emulator, 'localhost' for iOS Simulator
 // For physical devices, use your computer's local IP (e.g., 192.168.1.x)
-const LOCAL_IP = '192.168.1.9'; 
+const LOCAL_IP = '192.168.1.9';
 const PORT = '8000';
 
-export const API_URL = `http://${LOCAL_IP}:${PORT}`;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${LOCAL_IP}:${PORT}`;
 
 export const THEME = {
   colors: {
