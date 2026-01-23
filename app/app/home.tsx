@@ -6,7 +6,8 @@ import { BreathingOrb } from '../src/components/BreathingOrb';
 import { PhaseLabel } from '../src/components/PhaseLabel';
 import { ChatInput } from '../src/components/ChatInput';
 import { useBreathing } from '../src/hooks/useBreathing';
-import { analyzeLoad } from '../src/services/api';
+import { BreathingAgentService, TECHNIQUE_PATTERNS, DEFAULT_PATTERN_FALLBACK } from '../src/services/BreathingAgentService';
+// import { analyzeLoad } from '../src/services/api'; // Deprecated
 import { THEME } from '../src/constants/config';
 import Animated, { FadeIn, FadeOut, FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -289,23 +290,66 @@ export default function HomeScreen() {
         setAnalysis("Reflecting on your feelings...");
 
         // Start API call in background
-        const apiPromise = analyzeLoad(text, isNightMode ? 'night' : 'day', 0, isPregnant);
+        // const apiPromise = analyzeLoad(text, isNightMode ? 'night' : 'day', 0, isPregnant);
 
-        // Wait for 2 seconds to let user read the message
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // --- NEW INTEGRATION START ---
 
-        // Now switch to session
-        setViewMode('session');
+        const userProfile = {
+            is_pregnant: isPregnant,
+            trimester: isPregnant ? 2 : undefined, // Defaulting for now or could add UI selector
+            current_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            country_code: "TR" // Could fetch from locale
+        };
 
         try {
-            const response = await apiPromise;
-            if (response) {
-                setAnalysis(response.analysis);
-                setCurrentPattern(response.intervention.pattern);
-                setSessionLimit(response.intervention.duration_seconds || 180);
+            // Artificial Delay for UX
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            const response = await BreathingAgentService.callRemoteAgent(text, userProfile);
+
+            // 1. Check Emergency
+            if (response.emergency_override) {
+                setLoading(false);
+                setViewMode('chat'); // Stay in chat to show alert or handle UI
+
+                const override = response.emergency_override;
+                Alert.alert(
+                    "Safety Alert",
+                    override.display_message,
+                    override.buttons.map(btn => ({
+                        text: btn.label,
+                        onPress: () => {
+                            if (btn.action === 'call_phone' && btn.number) {
+                                // Linking.openURL(`tel:${btn.number}`)
+                                console.log("Call", btn.number);
+                            }
+                        }
+                    }))
+                );
+                return;
             }
+
+            // 2. Transition to Session
+            setViewMode('session');
+
+            // 3. Apply Response
+            setAnalysis(response.message_for_user || "Let's breathe together.");
+
+            if (response.suggested_technique_id || response.suggested_technique?.name) {
+                const techName = response.suggested_technique_id || response.suggested_technique?.name;
+                // Fuzzy match or exact match the pattern
+                // Clean string: remove " (MODIFIED...)" suffix if present
+                const cleanName = techName?.split(" (")[0].trim();
+
+                const pattern = TECHNIQUE_PATTERNS[cleanName || ""] || TECHNIQUE_PATTERNS[techName || ""] || DEFAULT_PATTERN_FALLBACK;
+                setCurrentPattern(pattern);
+
+                // If specific logic for duration exists in backend, use it. Otherwise default.
+                setSessionLimit(180);
+            }
+
         } catch (error) {
-            console.error("Analysis failed", error);
+            console.error("Agent failed", error);
             // Show error in session view instead of hiding it in chat
             setAnalysis("I couldn't connect to the brain, but we can still breathe together.");
 

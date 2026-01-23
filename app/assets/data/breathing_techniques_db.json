@@ -1,0 +1,289 @@
+{
+    "breathing_techniques_db": {
+        "categories": [
+            {
+                "id": "focus_energy",
+                "name": "Focus & Energy Boost",
+                "target_audience": [
+                    "Students",
+                    "Workers",
+                    "Sleepy/Drowsy"
+                ],
+                "techniques": [
+                    {
+                        "name": "Box Breathing",
+                        "mechanism": "4 In - 4 Hold - 4 Out - 4 Hold",
+                        "purpose": "Reset the mind, increase alpha waves.",
+                        "pregnancy_safety": {
+                            "is_safe": false,
+                            "reason": "Includes breath holding.",
+                            "alternative_ref": "equal_breathing"
+                        }
+                    },
+                    {
+                        "name": "Right Nostril Breathing (Surya Bhedana)",
+                        "mechanism": "Inhale right only, exhale right (Close left).",
+                        "purpose": "Stimulates left brain and sympathetic nervous system. Warming and energizing.",
+                        "pregnancy_safety": {
+                            "is_safe": true,
+                            "note": "Safe as long as done gently."
+                        }
+                    },
+                    {
+                        "name": "Kapalabhati (Fire/Skull Shining Breath)",
+                        "mechanism": "Passive inhale, active/sharp exhale from belly.",
+                        "purpose": "Pumps oxygen quickly, instant alertness (Espresso effect).",
+                        "pregnancy_safety": {
+                            "is_safe": false,
+                            "reason": "Abdominal pressure risk.",
+                            "status": "FORBIDDEN"
+                        }
+                    },
+                    {
+                        "name": "4-4-6-2 Cycle",
+                        "mechanism": "4 in, 4 hold, 6 out, 2 hold.",
+                        "purpose": "Preparation before deep focus work.",
+                        "pregnancy_safety": {
+                            "is_safe": false,
+                            "reason": "Holding parts must be removed."
+                        }
+                    },
+                    {
+                        "name": "Conscious Yawning (The Yawn)",
+                        "mechanism": "Open mouth wide inside and yawn with sound.",
+                        "purpose": "Cools brain, increases dopamine, moisturizes eyes.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Lion's Breath (Simhasana)",
+                        "mechanism": "Deep inhale, exhale tongue out, eyes up, 'Haaa' sound.",
+                        "purpose": "Releases throat tension, gives confidence.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Sip Breathing",
+                        "mechanism": "Inhale in 4 small sips, exhale in one go.",
+                        "purpose": "Stimulates lung capacity, wakes you up.",
+                        "pregnancy_safety": {
+                            "is_safe": true,
+                            "note": "Without forcing."
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "somatic_touching",
+                "name": "Somatic & Touching",
+                "description": "Touch and Body Focus",
+                "techniques": [
+                    {
+                        "name": "Palming",
+                        "mechanism": "Warm palms, place over closed eyes.",
+                        "purpose": "Rests optic nerve, good for screen fatigue.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Ear Lobe Pull",
+                        "mechanism": "Pull ear lobes down/out and massage.",
+                        "purpose": "Stimulates blood flow to brain, gathers attention.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "5 Finger Breathing (Hand Tracing)",
+                        "mechanism": "Trace around fingers while breathing.",
+                        "purpose": "Touch + Visual focus + Breath sync.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Thymus Thump",
+                        "mechanism": "Rhythmic tapping on center of chest.",
+                        "purpose": "Boosts energy levels, stimulates immunity.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Jaw Release",
+                        "mechanism": "Circular massage on jaw joint.",
+                        "purpose": "Sends 'danger over' signal to brain.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Cold Splash",
+                        "mechanism": "Splash cold water on face or cold towel on neck.",
+                        "purpose": "Triggers Mammalian Dive Reflex, regulates heart rate.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "anxiety_panic",
+                "name": "Anxiety & Panic SOS",
+                "target_audience": [
+                    "Crisis moments",
+                    "Exam stress",
+                    "Panic attacks"
+                ],
+                "techniques": [
+                    {
+                        "name": "Physiological Sigh",
+                        "mechanism": "Two inhales through nose (second short), long exhale through mouth.",
+                        "purpose": "Offloads CO2, effective in panic.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "5-4-3-2-1 Grounding",
+                        "mechanism": "5 See, 4 Feel, 3 Hear, 2 Smell, 1 Taste.",
+                        "purpose": "Brings mind to 'now'.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Butterfly Hug",
+                        "mechanism": "Cross hands and tap shoulders.",
+                        "purpose": "Balances brain with bilateral stimulation.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Voo Chanting",
+                        "mechanism": "Make deep vibrating 'Voooo' sound.",
+                        "purpose": "Stimulates Vagus nerve.",
+                        "pregnancy_safety": {
+                            "is_safe": true,
+                            "note": "Commonly used in labor."
+                        }
+                    },
+                    {
+                        "name": "Clench & Release (PMR)",
+                        "mechanism": "Squeeze hands (5s), release suddenly.",
+                        "purpose": "Release physical tension.",
+                        "pregnancy_safety": {
+                            "is_safe": false,
+                            "modification": "Do not squeeze belly, only hands/feet."
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "sleep_deep_rest",
+                "name": "Sleep & Deep Rest",
+                "techniques": [
+                    {
+                        "name": "4-7-8 Technique",
+                        "mechanism": "4 in, 7 hold, 8 out.",
+                        "purpose": "Transition to sleep.",
+                        "pregnancy_safety": {
+                            "is_safe": false,
+                            "modification": "4 in, slow 8 out without holding."
+                        }
+                    },
+                    {
+                        "name": "Left Nostril Breathing (Chandra Bhedana)",
+                        "mechanism": "Inhale/exhale left nostril only.",
+                        "purpose": "Cools body, calms (Moon energy).",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Humming Bee Breath (Bhramari)",
+                        "mechanism": "Close ears and make 'Mmm' sound.",
+                        "purpose": "Disconnection from outside world.",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    },
+                    {
+                        "name": "Body Scan",
+                        "mechanism": "Mental scanning of whole body.",
+                        "purpose": "Deep relaxation (Yoga Nidra).",
+                        "pregnancy_safety": {
+                            "is_safe": true
+                        }
+                    }
+                ]
+            }
+        ],
+        "pregnancy_scenarios": [
+            {
+                "scenario_id": "dyspnea",
+                "symptoms": [
+                    "Shortness of breath",
+                    "Feeling of not catching up",
+                    "Chest tightness"
+                ],
+                "mechanism_cause": "Uterus pressing on diaphragm.",
+                "recommended_action": [
+                    "Rib Expansion Breath",
+                    "Golden Thread Breath"
+                ],
+                "forbidden_actions": [
+                    "Forced belly breathing"
+                ]
+            },
+            {
+                "scenario_id": "tokophobia",
+                "symptoms": [
+                    "Fear of birth",
+                    "Tension",
+                    "Anxiety"
+                ],
+                "mechanism_cause": "Cortisol increase.",
+                "recommended_action": [
+                    "Bhramari (Bee Breath)",
+                    "Butterfly Hug"
+                ],
+                "agent_script_clue": "Remind her she is making space for baby and is safe."
+            },
+            {
+                "scenario_id": "morning_sickness",
+                "symptoms": [
+                    "Nausea",
+                    "Feeling unwell"
+                ],
+                "mechanism_cause": "Hormonal changes and smell sensitivity.",
+                "recommended_action": [
+                    "Sheetali (Cooling Breath)",
+                    "Cold Water on Wrists"
+                ],
+                "forbidden_actions": [
+                    "Strong smelling environments",
+                    "Rapid movements"
+                ]
+            },
+            {
+                "scenario_id": "braxton_hicks",
+                "symptoms": [
+                    "False labor",
+                    "Back pain",
+                    "Groin pain"
+                ],
+                "mechanism_cause": "Uterine contractions.",
+                "recommended_action": [
+                    "Voo Chanting",
+                    "Cat-Cow (Seated)"
+                ],
+                "agent_script_clue": "Focus on relaxing pelvic floor."
+            }
+        ]
+    }
+}
