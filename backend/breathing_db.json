@@ -1,0 +1,294 @@
+{
+    "meta_info": {
+        "version": "2.1",
+        "language": "en",
+        "description": "Breathing techniques database. 'ui_config' is for App, 'agent_config' is for LLM logic."
+    },
+    "techniques": [
+        {
+            "id": "box_breathing",
+            "title": "Box Breath",
+            "category": "focus",
+            "default_duration_sec": 120,
+            "agent_config": {
+                "purpose": "Resets the mind and heightens performance by regulating CO2 levels.",
+                "instruction_clue": "Inhale nose 4s, Hold 4s, Exhale mouth 4s, Hold 4s."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "day",
+                    "any"
+                ],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "BLOCK",
+                "pregnancy_alternative_id": "equal_breathing"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 4,
+                "exhale_sec": 4,
+                "hold_out_sec": 4
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "HOLD",
+                "exhale": "EXHALE",
+                "hold_out": "HOLD",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "focus_cycle",
+            "title": "Focus Cycle",
+            "category": "focus",
+            "default_duration_sec": 300,
+            "agent_config": {
+                "purpose": "Prepares the brain for deep work and long concentration spans.",
+                "instruction_clue": "Inhale nose 4s, Hold 4s, Exhale mouth 6s, Hold 2s."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "day"
+                ],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "MODIFY",
+                "pregnancy_mod_phases": {
+                    "inhale_sec": 4,
+                    "hold_in_sec": 0,
+                    "exhale_sec": 6,
+                    "hold_out_sec": 0
+                }
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 4,
+                "exhale_sec": 6,
+                "hold_out_sec": 2
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "HOLD",
+                "exhale": "EXHALE",
+                "hold_out": "HOLD",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "sip_breathing",
+            "title": "Sip Breath",
+            "category": "energy",
+            "default_duration_sec": 60,
+            "agent_config": {
+                "purpose": "Rapidly oxygenates the blood to wake you up like an espresso shot.",
+                "instruction_clue": "Inhale in 4 small sips through nose, one long exhale through mouth."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "day"
+                ],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "SIP.. SIP..",
+                "hold_in": "",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "physiological_sigh",
+            "title": "Relief Sigh",
+            "category": "panic",
+            "default_duration_sec": 90,
+            "agent_config": {
+                "purpose": "The fastest way to offload CO2 and stop a panic attack immediately.",
+                "instruction_clue": "Double inhale through nose (short second one), long sigh out through mouth."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "any"
+                ],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 3,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "DOUBLE INHALE",
+                "hold_in": "",
+                "exhale": "LONG SIGH",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "extended_exhale",
+            "title": "2:1 Relax",
+            "category": "panic",
+            "default_duration_sec": 180,
+            "agent_config": {
+                "purpose": "Activates the parasympathetic 'brake' system to lower heart rate.",
+                "instruction_clue": "Inhale nose 3s, Exhale through pursed lips 6s."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "any"
+                ],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 3,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "SLOW EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "voo_chanting",
+            "title": "Voo Breath",
+            "category": "pain_relief",
+            "default_duration_sec": 120,
+            "agent_config": {
+                "purpose": "Vibrates the Vagus nerve to release tension in the gut and pelvic floor.",
+                "instruction_clue": "Deep inhale, exhale making a low-pitched 'Voooo' sound."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "any"
+                ],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 8,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE (Voooo...)",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "4_7_8_sleep",
+            "title": "4-7-8 Sleep",
+            "category": "sleep",
+            "default_duration_sec": 240,
+            "agent_config": {
+                "purpose": "Acts as a natural tranquilizer for the nervous system to induce sleep.",
+                "instruction_clue": "Inhale nose 4s, Hold 7s, Exhale mouth 8s."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "night"
+                ],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "MODIFY",
+                "pregnancy_mod_phases": {
+                    "inhale_sec": 4,
+                    "hold_in_sec": 0,
+                    "exhale_sec": 8,
+                    "hold_out_sec": 0
+                }
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 7,
+                "exhale_sec": 8,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "HOLD",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "bee_breath",
+            "title": "Bee Breath",
+            "category": "sleep",
+            "default_duration_sec": 180,
+            "agent_config": {
+                "purpose": "Creates sensory withdrawal (pratyahara) to quiet a racing mind.",
+                "instruction_clue": "Close ears with thumbs, inhale nose, exhale making 'Mmmm' bee sound."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "night",
+                    "any"
+                ],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 8,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE (Humming)",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "equal_breathing",
+            "title": "Equal Breath",
+            "category": "balance",
+            "default_duration_sec": 120,
+            "agent_config": {
+                "purpose": "Brings immediate balance and steadiness to the emotions.",
+                "instruction_clue": "Inhale nose 4s, Exhale nose 4s smoothly."
+            },
+            "context_rules": {
+                "time_of_day": [
+                    "any"
+                ],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        }
+    ]
+}

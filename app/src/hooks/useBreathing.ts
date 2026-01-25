@@ -96,47 +96,56 @@ export const useBreathing = ({ pattern, onComplete }: UseBreathingProps) => {
         }
     };
 
-    // The Tick Effect
-    useEffect(() => {
-        if (isActive) {
-            // Start the cycle if just activated and sitting at idle
-            if (phase === 'idle') {
-                runCycle();
-            }
+    const timerRef = useRef<any>(null);
 
+    // Main Engine: Drives the Phase Transitions with Precision
+    useEffect(() => {
+        if (!isActive || phase === 'idle') return;
+
+        // Get current duration based on phase
+        let duration = 0;
+        if (phase === 'inhale') duration = inhaleDur;
+        else if (phase === 'hold-in') duration = holdInDur;
+        else if (phase === 'exhale') duration = exhaleDur;
+        else if (phase === 'hold-out') duration = holdOutDur;
+
+        // Safety: If somehow 0 duration phase is entered (should be skipped by startPhase), move next immediately
+        if (duration <= 0) {
+            const next = getNextPhase(phase);
+            startPhase(next);
+            return;
+        }
+
+        // Set precise timeout for the phase duration
+        timerRef.current = setTimeout(() => {
+            const next = getNextPhase(phase);
+            startPhase(next);
+        }, duration * 1000);
+
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, [phase, isActive, inhaleDur, holdInDur, exhaleDur, holdOutDur]);
+
+    // UI Clock: Updates the countdown (Visual Only)
+    useEffect(() => {
+        if (isActive && phase !== 'idle') {
             intervalRef.current = setInterval(() => {
-                setTimeLeft((prev) => {
-                    if (prev > 1) {
-                        return prev - 1;
-                    } else {
-                        // Time is up for current phase
-                        // We need to transition. 
-                        // NOTE: State updates inside setter might be tricky if we need `phase`
-                        // So we use a ref or rely on the effect dependency to restart/check.
-                        // Actually, simplified: we check phase in the effect closure? No, stale closure.
-                        // Better to rely on a separate effect or use refs for current phase.
-                        // Let's keep it simple: We use a separate effect for the interval? 
-                        // Or use refs for mutable variables that don't trigger re-renders.
-                        return 0;
-                    }
-                });
+                setTimeLeft((prev) => Math.max(0, prev - 1));
             }, 1000);
-        } else {
-            if (intervalRef.current) clearInterval(intervalRef.current);
         }
 
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
-    }, [isActive]);
+    }, [phase, isActive]);
 
-    // Phase transition effect - watches timeLeft hitting 0
+    // Start Trigger
     useEffect(() => {
-        if (isActive && timeLeft === 0 && phase !== 'idle') {
-            const next = getNextPhase(phase);
-            startPhase(next);
+        if (isActive && phase === 'idle') {
+            runCycle();
         }
-    }, [timeLeft, isActive, phase]); // Dependencies ensure we transition when time hits 0
+    }, [isActive, phase, runCycle]);
 
     // Watch for pattern changes while active to update live durations (optional but good)
     // For now, let's assume pattern change restarts or applies on next cycle.

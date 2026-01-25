@@ -41,10 +41,7 @@ export const TopBar: React.FC<TopBarProps> = ({ title = 'INUA', isNightMode, isP
                         </TouchableOpacity>
                     )}
 
-                    <TouchableOpacity
-                        style={styles.pillContainer}
-                        onPress={onToggleNightMode}
-                    >
+                    <View style={styles.pillContainer}>
                         <Ionicons
                             name={isNightMode ? "moon" : "sunny"}
                             size={14}
@@ -54,7 +51,7 @@ export const TopBar: React.FC<TopBarProps> = ({ title = 'INUA', isNightMode, isP
                         <Text style={styles.pillText}>
                             {isNightMode ? 'NIGHT' : 'DAY'}
                         </Text>
-                    </TouchableOpacity>
+                    </View>
                 </View>
             </View>
         </View>

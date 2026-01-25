@@ -14,6 +14,7 @@
                         "name": "Box Breathing",
                         "mechanism": "4 In - 4 Hold - 4 Out - 4 Hold",
                         "purpose": "Reset the mind, increase alpha waves.",
+                        "recommended_duration_seconds": 300,
                         "pregnancy_safety": {
                             "is_safe": false,
                             "reason": "Includes breath holding.",
@@ -24,6 +25,7 @@
                         "name": "Right Nostril Breathing (Surya Bhedana)",
                         "mechanism": "Inhale right only, exhale right (Close left).",
                         "purpose": "Stimulates left brain and sympathetic nervous system. Warming and energizing.",
+                        "recommended_duration_seconds": 180,
                         "pregnancy_safety": {
                             "is_safe": true,
                             "note": "Safe as long as done gently."
@@ -33,6 +35,7 @@
                         "name": "Kapalabhati (Fire/Skull Shining Breath)",
                         "mechanism": "Passive inhale, active/sharp exhale from belly.",
                         "purpose": "Pumps oxygen quickly, instant alertness (Espresso effect).",
+                        "recommended_duration_seconds": 180,
                         "pregnancy_safety": {
                             "is_safe": false,
                             "reason": "Abdominal pressure risk.",
@@ -43,6 +46,7 @@
                         "name": "4-4-6-2 Cycle",
                         "mechanism": "4 in, 4 hold, 6 out, 2 hold.",
                         "purpose": "Preparation before deep focus work.",
+                        "recommended_duration_seconds": 240,
                         "pregnancy_safety": {
                             "is_safe": false,
                             "reason": "Holding parts must be removed."
@@ -52,6 +56,7 @@
                         "name": "Conscious Yawning (The Yawn)",
                         "mechanism": "Open mouth wide inside and yawn with sound.",
                         "purpose": "Cools brain, increases dopamine, moisturizes eyes.",
+                        "recommended_duration_seconds": 60,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -60,6 +65,7 @@
                         "name": "Lion's Breath (Simhasana)",
                         "mechanism": "Deep inhale, exhale tongue out, eyes up, 'Haaa' sound.",
                         "purpose": "Releases throat tension, gives confidence.",
+                        "recommended_duration_seconds": 120,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -68,6 +74,7 @@
                         "name": "Sip Breathing",
                         "mechanism": "Inhale in 4 small sips, exhale in one go.",
                         "purpose": "Stimulates lung capacity, wakes you up.",
+                        "recommended_duration_seconds": 180,
                         "pregnancy_safety": {
                             "is_safe": true,
                             "note": "Without forcing."
@@ -84,6 +91,7 @@
                         "name": "Palming",
                         "mechanism": "Warm palms, place over closed eyes.",
                         "purpose": "Rests optic nerve, good for screen fatigue.",
+                        "recommended_duration_seconds": 120,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -92,6 +100,7 @@
                         "name": "Ear Lobe Pull",
                         "mechanism": "Pull ear lobes down/out and massage.",
                         "purpose": "Stimulates blood flow to brain, gathers attention.",
+                        "recommended_duration_seconds": 60,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -100,6 +109,7 @@
                         "name": "5 Finger Breathing (Hand Tracing)",
                         "mechanism": "Trace around fingers while breathing.",
                         "purpose": "Touch + Visual focus + Breath sync.",
+                        "recommended_duration_seconds": 300,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -108,6 +118,7 @@
                         "name": "Thymus Thump",
                         "mechanism": "Rhythmic tapping on center of chest.",
                         "purpose": "Boosts energy levels, stimulates immunity.",
+                        "recommended_duration_seconds": 60,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -116,6 +127,7 @@
                         "name": "Jaw Release",
                         "mechanism": "Circular massage on jaw joint.",
                         "purpose": "Sends 'danger over' signal to brain.",
+                        "recommended_duration_seconds": 120,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -124,6 +136,7 @@
                         "name": "Cold Splash",
                         "mechanism": "Splash cold water on face or cold towel on neck.",
                         "purpose": "Triggers Mammalian Dive Reflex, regulates heart rate.",
+                        "recommended_duration_seconds": 30,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -143,6 +156,7 @@
                         "name": "Physiological Sigh",
                         "mechanism": "Two inhales through nose (second short), long exhale through mouth.",
                         "purpose": "Offloads CO2, effective in panic.",
+                        "recommended_duration_seconds": 300,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -151,6 +165,7 @@
                         "name": "5-4-3-2-1 Grounding",
                         "mechanism": "5 See, 4 Feel, 3 Hear, 2 Smell, 1 Taste.",
                         "purpose": "Brings mind to 'now'.",
+                        "recommended_duration_seconds": 300,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -159,6 +174,7 @@
                         "name": "Butterfly Hug",
                         "mechanism": "Cross hands and tap shoulders.",
                         "purpose": "Balances brain with bilateral stimulation.",
+                        "recommended_duration_seconds": 180,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -167,6 +183,7 @@
                         "name": "Voo Chanting",
                         "mechanism": "Make deep vibrating 'Voooo' sound.",
                         "purpose": "Stimulates Vagus nerve.",
+                        "recommended_duration_seconds": 180,
                         "pregnancy_safety": {
                             "is_safe": true,
                             "note": "Commonly used in labor."
@@ -176,6 +193,7 @@
                         "name": "Clench & Release (PMR)",
                         "mechanism": "Squeeze hands (5s), release suddenly.",
                         "purpose": "Release physical tension.",
+                        "recommended_duration_seconds": 300,
                         "pregnancy_safety": {
                             "is_safe": false,
                             "modification": "Do not squeeze belly, only hands/feet."
@@ -191,6 +209,7 @@
                         "name": "4-7-8 Technique",
                         "mechanism": "4 in, 7 hold, 8 out.",
                         "purpose": "Transition to sleep.",
+                        "recommended_duration_seconds": 240,
                         "pregnancy_safety": {
                             "is_safe": false,
                             "modification": "4 in, slow 8 out without holding."
@@ -200,6 +219,7 @@
                         "name": "Left Nostril Breathing (Chandra Bhedana)",
                         "mechanism": "Inhale/exhale left nostril only.",
                         "purpose": "Cools body, calms (Moon energy).",
+                        "recommended_duration_seconds": 300,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -208,6 +228,7 @@
                         "name": "Humming Bee Breath (Bhramari)",
                         "mechanism": "Close ears and make 'Mmm' sound.",
                         "purpose": "Disconnection from outside world.",
+                        "recommended_duration_seconds": 300,
                         "pregnancy_safety": {
                             "is_safe": true
                         }
@@ -216,6 +237,7 @@
                         "name": "Body Scan",
                         "mechanism": "Mental scanning of whole body.",
                         "purpose": "Deep relaxation (Yoga Nidra).",
+                        "recommended_duration_seconds": 600,
                         "pregnancy_safety": {
                             "is_safe": true
                         }

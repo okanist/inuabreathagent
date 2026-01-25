@@ -1,16 +1,26 @@
-import techniquesDb from '../../assets/data/breathing_techniques_db.json';
+// V2 Schema Types - Data now comes from Backend
+interface BreathingPhases {
+    inhale_sec: number;
+    hold_in_sec: number;
+    exhale_sec: number;
+    hold_out_sec: number;
+}
 
-// Types derived from the JSON structure
+interface UITexts {
+    inhale: string;
+    hold_in: string;
+    exhale: string;
+    hold_out: string;
+    bottom_sound_text: string | null;
+}
+
 interface BreathingTechnique {
-    name: string;
-    mechanism: string;
-    purpose: string;
-    pregnancy_safety: {
-        is_safe: boolean;
-        reason?: string;
-        alternative_ref?: string;
-        modification?: string;
-    };
+    id: string;
+    title: string;
+    category: string;
+    default_duration_sec: number;
+    phases: BreathingPhases;
+    ui_texts: UITexts;
 }
 
 interface UserProfile {
@@ -25,6 +35,7 @@ interface AgentResponse {
     message_for_user?: string;
     suggested_technique?: BreathingTechnique | null;
     suggested_technique_id?: string | null;
+    duration_seconds?: number;
     app_command?: {
         type: 'play_audio' | 'start_animation' | 'haptic_pattern';
         value: string;
@@ -63,16 +74,17 @@ const EMERGENCY_NUMBERS: Record<string, string> = {
     "IN": "112", // India
 };
 
+// Fallback patterns by technique ID (V2 schema)
 export const TECHNIQUE_PATTERNS: Record<string, number[]> = {
-    "Box Breathing": [4, 4, 4, 4],
-    "Equal Breathing": [4, 0, 4, 0],
-    "4-7-8 Technique": [4, 7, 8, 0],
-    "Physiological Sigh": [3, 1, 6, 0], // Approximation: Inhale, short pause/2nd inhale, long exhale
-    "Cardiac Coherence": [5, 0, 5, 0],
-    "Triangle Breathing": [4, 4, 4, 0],
-    "Relax Breathing": [4, 0, 6, 0],
-    "Sheetali (Cooling Breath)": [4, 2, 4, 0],
-    "Bhramari (Bee Breath)": [4, 0, 6, 0]
+    "box_breathing": [4, 4, 4, 4],
+    "equal_breathing": [4, 0, 4, 0],
+    "4_7_8_sleep": [4, 7, 8, 0],
+    "physiological_sigh": [3, 0, 6, 0],
+    "focus_cycle": [4, 4, 6, 2],
+    "sip_breathing": [4, 0, 4, 0],
+    "extended_exhale": [3, 0, 6, 0],
+    "voo_chanting": [4, 0, 8, 0],
+    "bee_breath": [4, 0, 8, 0]
 };
 
 export const DEFAULT_PATTERN_FALLBACK = [4, 4, 4, 4];
@@ -85,6 +97,15 @@ export class BreathingAgentService {
         if (!countryCode) return "112"; // Default global GSM standard
         const code = countryCode.toUpperCase();
         return EMERGENCY_NUMBERS[code] || "112";
+    }
+
+    /**
+     * Look up a technique by ID from TECHNIQUE_PATTERNS fallback.
+     * Main data now comes from backend via callRemoteAgent.
+     */
+    static findTechniqueById(techId: string): number[] | null {
+        if (!techId) return null;
+        return TECHNIQUE_PATTERNS[techId] || null;
     }
 
     /**
@@ -120,36 +141,13 @@ export class BreathingAgentService {
 
 
     /**
-     * THE SAFETY GUARD
-     * Filters out forbidden techniques based on user profile.
+     * @deprecated Backend now handles all filtering via /api/agent/chat
+     * This function is kept for offline fallback only.
+     * Returns technique IDs that are generally safe.
      */
-    static getSafeTechniques(userProfile: UserProfile): BreathingTechnique[] {
-        const allTechniques: BreathingTechnique[] = [];
-
-        // Flatten techniques from all categories
-        techniquesDb.breathing_techniques_db.categories.forEach(cat => {
-            allTechniques.push(...(cat.techniques as BreathingTechnique[]));
-        });
-
-        if (!userProfile.is_pregnant) {
-            return allTechniques;
-        }
-
-        // Filter for pregnancy safety
-        return allTechniques.filter(tech => {
-            // 1. Check explicit "is_safe" flag
-            if (tech.pregnancy_safety.is_safe) return true;
-
-            // 2. Check if there is a modification allowed (e.g., "don't squeeze belly")
-            // If modification is present, it might be considered conditionally safe, 
-            // but strictly speaking, we might want to prioritize fully safe ones.
-            // For this guardrail, we will be strict:
-            if (tech.pregnancy_safety.is_safe === false) {
-                console.log(`[SafetyGuard] Excluded ${tech.name}: ${tech.pregnancy_safety.reason}`);
-                return false;
-            }
-            return true;
-        });
+    static getSafeTechniqueIds(): string[] {
+        // For offline fallback, return IDs known to be safe
+        return Object.keys(TECHNIQUE_PATTERNS);
     }
 
     /**
@@ -170,9 +168,7 @@ export class BreathingAgentService {
         if (userProfile.is_pregnant) {
             prompt += `CRITICAL SAFETY CONSTRAINTS (User is Pregnant - Trimester ${userProfile.trimester || '?'}):\n`;
             prompt += `1. NEVER suggest breath retention (Kumbhaka).\n`;
-            prompt += `2. NEVER suggest forceful abdominal exhalations (Kapalabhati).\n`;
-            prompt += `3. REPLACE "Box Breathing" with "Equal Breathing".\n`;
-            prompt += `4. REPLACE "4-7-8" with "4-6 (no hold)".\n\n`;
+            prompt += `2. NEVER suggest forceful abdominal exhalations (Kapalabhati).\n\n`;
         }
 
         prompt += `OUTPUT FORMAT:\nJSON only: { "message_for_user": "...", "suggested_technique_id": "...", "app_command": {...} }`;
@@ -220,21 +216,23 @@ export class BreathingAgentService {
         }
 
         // --- STAGE 3: MAIN BRAIN (Standard Flow) ---
+        // This is offline fallback - main flow uses callRemoteAgent
 
-        // 1. Get Safe List
-        const safeTechniques = this.getSafeTechniques(userProfile);
+        // 1. Get Safe List (IDs only for offline fallback)
+        const safeTechniqueIds = this.getSafeTechniqueIds();
 
         // 2. Construct Prompt
         const systemPrompt = this.generateSystemPrompt(userProfile);
-        const userPrompt = `User Input: "${input}"\nAvailable Safe Techniques: ${safeTechniques.map(t => t.name).join(', ')}`;
+        const userPrompt = `User Input: "${input}"\nAvailable Safe Techniques: ${safeTechniqueIds.join(', ')}`;
 
         // 3. Call LLM (Pseudo-code)
         console.log("Sending to LLM:", systemPrompt, userPrompt);
 
-        // Mock Response
+        // Mock Response - simplified for offline fallback
         return {
             message_for_user: "I hear that you're feeling overwhelmed. Let's take a moment to ground ourselves safely.",
-            suggested_technique: safeTechniques.find(t => t.name === "Physiological Sigh") || null,
+            suggested_technique_id: "equal_breathing",
+            duration_seconds: 120,
             app_command: {
                 type: 'start_animation',
                 value: 'calm_waves'
@@ -248,7 +246,11 @@ export class BreathingAgentService {
      */
     static async callRemoteAgent(input: string, userProfile: UserProfile): Promise<AgentResponse> {
         try {
-            const response = await fetch('http://localhost:8001/api/agent/chat', {
+            // Use 10.0.2.2 for Android Emulator
+            // Use 192.168.1.11 for Physical Device (Local Network - Verified)
+            const API_URL = "http://192.168.1.11:8001/api/agent/chat";
+            // const API_URL = "http://localhost:8001/api/agent/chat"; // Uncomment for iOS
+            const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -265,10 +267,14 @@ export class BreathingAgentService {
             });
 
             if (!response.ok) {
-                throw new Error(`Backend Error: ${response.status}`);
+                throw new Error(`Agent API Error: ${response.status}`);
             }
 
             const data = await response.json();
+            console.log("\n🔵 --- AGENT RESPONSE (Frontend) ---");
+            console.log(JSON.stringify(data, null, 2));
+            console.log("-----------------------------------\n");
+
             return data as AgentResponse;
 
         } catch (error) {

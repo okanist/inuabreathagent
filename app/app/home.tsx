@@ -13,6 +13,7 @@ import Animated, { FadeIn, FadeOut, FadeInDown, useSharedValue, useAnimatedStyle
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import Markdown from 'react-native-markdown-display';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,7 +28,38 @@ interface Message {
     text: string;
     sender: 'user' | 'inua';
     timestamp: number;
+    action?: {
+        type: 'start_session';
+        label: string;
+        data: {
+            title: string;
+            pattern: number[];
+            duration: number;
+            instructions?: Record<string, string | undefined>;
+        };
+    };
 }
+
+const parsePatternString = (str?: string): number[] => {
+    if (!str) return DEFAULT_PATTERN;
+    if (str === "special_sip") return [4, 0, 4, 0];
+    if (str === "double_inhale_long_exhale") return [3, 1, 6, 0];
+
+    const parts = str.split('-').map(Number);
+    if (parts.length === 4 && parts.every(n => !isNaN(n))) return parts;
+    return DEFAULT_PATTERN;
+};
+
+// V2 Schema: Convert phases object to number[] array
+const parsePhasesObject = (phases?: { inhale_sec?: number; hold_in_sec?: number; exhale_sec?: number; hold_out_sec?: number }): number[] => {
+    if (!phases) return DEFAULT_PATTERN;
+    return [
+        phases.inhale_sec ?? 4,
+        phases.hold_in_sec ?? 0,
+        phases.exhale_sec ?? 4,
+        phases.hold_out_sec ?? 0
+    ];
+};
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();
@@ -37,6 +69,7 @@ export default function HomeScreen() {
     });
     const [isPregnant, setIsPregnant] = useState(false);
     const [currentPattern, setCurrentPattern] = useState(DEFAULT_PATTERN);
+    const [sessionInstructions, setSessionInstructions] = useState<Record<string, string | undefined> | undefined>(undefined);
     const [viewMode, setViewMode] = useState<ViewMode>('chat');
 
     // Chat state
@@ -159,6 +192,7 @@ export default function HomeScreen() {
     // Timer state for session
     const [elapsedTime, setElapsedTime] = useState(0);
     const [sessionLimit, setSessionLimit] = useState(180); // Default 3 mins
+    const [sessionTitle, setSessionTitle] = useState("Paced Breathing");
 
     // Timer Logic
     useEffect(() => {
@@ -210,12 +244,16 @@ export default function HomeScreen() {
     // Initialize/Update Welcome Message based on context
     useEffect(() => {
         let welcomeText = "";
-        if (isPregnant) {
-            welcomeText = "Hello, I'm Inua. How are you and the baby feeling today?";
+        if (isPregnant && isNightMode) {
+            // Pregnant + Night
+            welcomeText = "Hello, I'm Inua.\nThis is a quiet moment just for you.\n\nHow are you and the baby feeling right now?";
+        } else if (isPregnant) {
+            // Pregnant + Day
+            welcomeText = "Hi, I'm Inua.\nLet's check in with your body for a moment.\n\nHow are you and the baby feeling right now?";
         } else if (isNightMode) {
-            welcomeText = "Good evening.\nHow are you feeling right now?\n\nI’ll guide you to a breathing exercise that fits your state.\n\nIf you’re pregnant, please enable Pregnancy Mode so I can guide you safely.";
+            welcomeText = "Good evening.\nHow are you feeling right now?\n\nI’ll guide you to a breathing exercise that fits your state.\n\n_If you’re pregnant, please enable Pregnancy Mode so I can guide you safely._";
         } else {
-            welcomeText = "Good day.\nHow are you feeling right now?\n\nI’ll guide you to a breathing exercise that fits your state.\n\nIf you’re pregnant, please enable Pregnancy Mode so I can guide you safely.";
+            welcomeText = "Good day.\nHow are you feeling right now?\n\nI’ll guide you to a breathing exercise that fits your state.\n\n_If you’re pregnant, please enable Pregnancy Mode so I can guide you safely._";
         }
 
         setMessages(prev => {
@@ -296,7 +334,7 @@ export default function HomeScreen() {
 
         const userProfile = {
             is_pregnant: isPregnant,
-            trimester: isPregnant ? 2 : undefined, // Defaulting for now or could add UI selector
+            trimester: undefined, // Removed hardcoded default '2'. The Agent will handle unknowns.
             current_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
             country_code: "TR" // Could fetch from locale
         };
@@ -329,29 +367,73 @@ export default function HomeScreen() {
                 return;
             }
 
-            // 2. Transition to Session
-            setViewMode('session');
+            // 3. Construct Actionable Message (V2 Schema)
+            const suggested = response.suggested_technique;
+            const techId = response.suggested_technique_id || suggested?.id;
+            let actionData = undefined;
 
-            // 3. Apply Response
-            setAnalysis(response.message_for_user || "Let's breathe together.");
+            // Helper: Convert tech ID to display title (e.g., "4_7_8_sleep" -> "4-7-8 Sleep")
+            const formatTechId = (id: string): string => {
+                return id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/(\d) (\d)/g, '$1-$2');
+            };
 
-            if (response.suggested_technique_id || response.suggested_technique?.name) {
-                const techName = response.suggested_technique_id || response.suggested_technique?.name;
-                // Fuzzy match or exact match the pattern
-                // Clean string: remove " (MODIFIED...)" suffix if present
-                const cleanName = techName?.split(" (")[0].trim();
+            if (techId) {
+                // V2: Get pattern from phases object returned by backend
+                let pattern = DEFAULT_PATTERN_FALLBACK;
+                let title = suggested?.title || formatTechId(techId);
 
-                const pattern = TECHNIQUE_PATTERNS[cleanName || ""] || TECHNIQUE_PATTERNS[techName || ""] || DEFAULT_PATTERN_FALLBACK;
-                setCurrentPattern(pattern);
+                if (suggested?.phases) {
+                    // Backend returns phases object with inhale_sec, hold_in_sec, etc.
+                    pattern = parsePhasesObject(suggested.phases);
+                } else {
+                    // Fallback to local TECHNIQUE_PATTERNS
+                    pattern = TECHNIQUE_PATTERNS[techId] || DEFAULT_PATTERN_FALLBACK;
+                }
 
-                // If specific logic for duration exists in backend, use it. Otherwise default.
-                setSessionLimit(180);
+                // V2: Pregnancy safety is already handled by backend
+                // Backend returns modified phases if user is pregnant
+                // But we keep client-side safety check as defense in depth
+                if (isPregnant) {
+                    // Force holds to 0 if backend didn't already modify
+                    if (pattern[1] > 0 || pattern[3] > 0) {
+                        pattern = [pattern[0], 0, pattern[2], 0];
+                    }
+                }
+
+                // V2: Build ui_texts based instructions for session
+                const uiTexts = suggested?.ui_texts;
+                const instructions: Record<string, string | undefined> | undefined = uiTexts ? {
+                    'inhale': uiTexts.inhale,
+                    'hold-in': uiTexts.hold_in,
+                    'exhale': uiTexts.exhale,
+                    'hold-out': uiTexts.hold_out
+                } : undefined;
+
+                actionData = {
+                    title: title,
+                    pattern: pattern,
+                    duration: response.duration_seconds || suggested?.default_duration_sec || 180,
+                    instructions: instructions
+                };
             }
+
+            const agentMsg: Message = {
+                id: Date.now().toString() + '_ai',
+                text: response.message_for_user || "I can help with that.",
+                sender: 'inua',
+                timestamp: Date.now(),
+                action: actionData ? {
+                    type: 'start_session',
+                    label: `Start ${actionData.title}`,
+                    data: actionData
+                } : undefined
+            };
+
+            setMessages(prev => [...prev, agentMsg]);
+            setLoading(false);
 
         } catch (error) {
             console.error("Agent failed", error);
-            // Show error in session view instead of hiding it in chat
-            setAnalysis("I couldn't connect to the brain, but we can still breathe together.");
 
             const errorMsg: Message = {
                 id: Date.now().toString() + '_err',
@@ -360,7 +442,6 @@ export default function HomeScreen() {
                 timestamp: Date.now()
             };
             setMessages(prev => [...prev, errorMsg]);
-        } finally {
             setLoading(false);
         }
     };
@@ -395,6 +476,20 @@ export default function HomeScreen() {
                 ]
             );
         }
+    };
+
+    const handleStartSession = (data: { title: string, pattern: number[], duration: number, instructions?: Record<string, string | undefined> }) => {
+        // 1. Set Session State
+        setSessionTitle(data.title);
+        setCurrentPattern(data.pattern);
+        setSessionLimit(data.duration);
+        setSessionInstructions(data.instructions);
+
+        // 2. Transition View
+        setViewMode('session');
+
+        // 3. Optional: Auto-start or wait for user to press play
+        // stop(); // Ensure clean state
     };
 
     const renderBackground = () => {
@@ -451,18 +546,57 @@ export default function HomeScreen() {
                         {!isUser && (
                             <Text style={styles.senderName}>Inua</Text>
                         )}
-                        <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.inuaMessageText]}>
-                            {msg.id === 'welcome' && !isUser && msg.text.includes("If you’re pregnant") ? (
-                                <>
-                                    {msg.text.split("If you’re pregnant")[0]}
-                                    <Text style={{ fontStyle: 'italic' }}>
-                                        If you’re pregnant{msg.text.split("If you’re pregnant")[1]}
-                                    </Text>
-                                </>
-                            ) : (
-                                msg.text
-                            )}
-                        </Text>
+                        <Markdown
+                            style={{
+                                body: {
+                                    fontSize: 16,
+                                    lineHeight: 22,
+                                    color: isUser ? '#FFF' : '#333',
+                                },
+                                strong: {
+                                    color: isUser ? '#FFF' : '#333',
+                                    fontWeight: 'bold',
+                                },
+                                em: {
+                                    color: isUser ? '#FFF' : '#333',
+                                    fontStyle: 'italic',
+                                },
+                                paragraph: {
+                                    // Remove bottom margin to match bubble sizing better if needed
+                                    marginBottom: 0,
+                                    marginTop: 0,
+                                    flexWrap: 'wrap',
+                                    flexDirection: 'row',
+                                    alignItems: 'flex-start',
+                                },
+                            }}
+                        >
+                            {msg.text}
+                        </Markdown>
+
+                        {/* Action Button */}
+                        {msg.action && msg.action.type === 'start_session' && (
+                            <TouchableOpacity
+                                style={{
+                                    marginTop: 15,
+                                    backgroundColor: THEME.colors.primary,
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 20,
+                                    borderRadius: 25,
+                                    alignItems: 'center',
+                                    shadowColor: "#000",
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.2,
+                                    shadowRadius: 3,
+                                    elevation: 3,
+                                }}
+                                onPress={() => handleStartSession(msg.action!.data)}
+                            >
+                                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>
+                                    {msg.action.label}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </Animated.View>
                 );
             })}
@@ -473,30 +607,40 @@ export default function HomeScreen() {
         <View style={styles.sessionContainer}>
             {/* Header Area */}
             <View style={styles.sessionHeader}>
-                <Text style={styles.sessionTitle}>Paced Breathing</Text>
+                <Text style={styles.sessionTitle}>{sessionTitle}</Text>
                 <Text style={styles.sessionTimer}>{formatTime(elapsedTime)}</Text>
+            </View>
+
+            {/* Phase Instructions (Dynamic) - Moved Up */}
+            <View style={{ marginTop: 40, marginBottom: 20, alignItems: 'center', height: 40 }}>
+                <Text style={[styles.activePhaseLabel, { fontSize: 28, textAlign: 'center' }]}>
+                    {(() => {
+                        if (!isActive) return "Tap Play";
+
+                        // Safety: If duration is 0, don't show text (prevents ghost holds)
+                        const [inhale, holdIn, exhale, holdOut] = currentPattern;
+                        const pDur = phase === 'inhale' ? inhale :
+                            phase === 'hold-in' ? holdIn :
+                                phase === 'exhale' ? exhale :
+                                    phase === 'hold-out' ? holdOut : 0;
+
+                        if (pDur <= 0) return "";
+
+                        const text = sessionInstructions?.[phase] ||
+                            (phase === 'idle' ? 'Ready' :
+                                phase === 'hold-in' ? 'HOLD' :
+                                    phase === 'hold-out' ? 'HOLD' :
+                                        phase.toUpperCase());
+
+                        return text;
+                    })()}
+                </Text>
             </View>
 
             {/* Main Orb Area */}
             <View style={styles.orbContainer}>
                 <BreathingOrb phase={phase} durations={currentPattern} />
-                {isPregnant && <Text style={styles.safetyTag}>Safe for Pregnancy</Text>}
-            </View>
-
-            {/* Phase Labels */}
-            <View style={styles.phaseLabelsContainer}>
-                <PhaseLabel
-                    text="INHALE"
-                    isActive={isActive && (phase === 'inhale' || phase === 'hold-in')}
-                />
-                <PhaseLabel
-                    text="EXHALE"
-                    isActive={isActive && (phase === 'exhale' || phase === 'hold-out')}
-                />
-                <PhaseLabel
-                    text="REST"
-                    isActive={!isActive}
-                />
+                {isPregnant && Platform.OS !== 'web' && <Text style={styles.safetyTag}>Safe for Pregnancy</Text>}
             </View>
 
             {/* Bottom Controls */}
@@ -685,6 +829,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
+        paddingBottom: 40, // Visually lift the orb to center it better between text and controls
     },
     image: {
         width: 200,
