@@ -246,10 +246,13 @@ export class BreathingAgentService {
      */
     static async callRemoteAgent(input: string, userProfile: UserProfile): Promise<AgentResponse> {
         try {
-            // Use 10.0.2.2 for Android Emulator
-            // Use 192.168.1.11 for Physical Device (Local Network - Verified)
-            const API_URL = "http://192.168.1.11:8001/api/agent/chat";
-            // const API_URL = "http://localhost:8001/api/agent/chat"; // Uncomment for iOS
+            // Priority: Environment Variable (Vercel/Prod) -> Localhost (Dev)
+            // Note for Physical Android Devices: Change to your local IP (e.g. 192.168.1.11)
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8001/api/agent/chat";
+
+            if (!process.env.EXPO_PUBLIC_API_URL) {
+                console.debug("Using Dev API Fallback:", API_URL);
+            }
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
