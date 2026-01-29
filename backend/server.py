@@ -3,7 +3,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import json
-from typing import Optional, List, Dict
+import uuid
+from typing import Optional, List, Dict, Tuple
 from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
 from openai import OpenAI
@@ -24,18 +25,30 @@ app.add_middleware(
 
 # Opik Mocking
 try:
+    import opik
     from opik import Opik, track
-    if os.environ.get("OPIK_API_KEY"):
-        opik_client = Opik(project_name="Breathing-Agent-Hackathon")
+    opik_api_key = os.environ.get("OPIK_API_KEY", "").strip()
+    opik_workspace = os.environ.get("OPIK_WORKSPACE", "").strip().strip('"').strip("'")
+    opik_project_name = os.environ.get("OPIK_PROJECT_NAME", "InuaBreath").strip().strip('"').strip("'")
+    if opik_api_key:
+        opik_client = Opik(
+            project_name=opik_project_name,
+            workspace=opik_workspace if opik_workspace else None,
+            api_key=opik_api_key
+        )
+        print(f"Opik enabled and initialized (project: {opik_project_name}, workspace: {opik_workspace or 'default'})", flush=True)
+        OPIK_AVAILABLE = True
     else:
         raise ImportError("No Opik Key")
 except:
-    print("Opik disabled (no key or module)")
+    print("Opik disabled (no key or module)", flush=True)
+    opik = None
     def track(name=None):
         def decorator(func):
             return func
         return decorator
     opik_client = None
+    OPIK_AVAILABLE = False
 
 # Initialize Client
 api_key = os.environ.get("IOINTELLIGENCE_API_KEY", "").strip()
@@ -46,6 +59,11 @@ client = OpenAI(
     base_url="https://api.intelligence.io.solutions/api/v1",
     api_key=api_key
 )
+
+# Environment variables for Opik evaluation
+MODEL_NAME = os.environ.get("LLM_MODEL_NAME", "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8")
+INUA_PROMPT_VERSION = os.environ.get("INUA_PROMPT_VERSION", "v1")
+INUA_MODEL_VERSION = os.environ.get("INUA_MODEL_VERSION", MODEL_NAME)
 
 # --- DATA MODELS ---
 class UserProfile(BaseModel):
@@ -61,11 +79,12 @@ class UserRequest(BaseModel):
 class AgentResponse(BaseModel):
     message_for_user: Optional[str] = None
     suggested_technique_id: Optional[str] = None
-    suggested_technique: Optional[Dict] = None  # Full technique object (V2)
+    suggested_technique: Optional[Dict] = None  # Full technique object (V2) - shaped with safe phases
+    instruction_text: Optional[str] = None  # Deterministic instruction from DB phases (not from LLM)
     duration_seconds: Optional[int] = 180
     app_command: Optional[Dict] = None
     emergency_override: Optional[Dict] = None
-    thought_process: Optional[str] = None  # Chain of Thought for Opik tracing
+    # thought_process removed - only logged to Opik metadata
 
 # ... (rest of code)
 
@@ -86,6 +105,82 @@ def load_techniques_db():
 
 DB = load_techniques_db()
 
+# --- PREGNANCY NORMALIZATION ---
+
+def normalize_technique_for_profile(tech: dict, user_profile: dict) -> Optional[Dict]:
+    """
+    Normalize a technique based on user profile (pregnancy logic).
+    Returns None if technique should be blocked, otherwise returns shaped technique.
+    """
+    ctx = tech.get("context_rules", {}) or {}
+    is_pregnant = bool(user_profile.get("is_pregnant"))
+
+    if not is_pregnant:
+        tech2 = dict(tech)
+        tech2["effective_context"] = {"pregnancy_logic": (ctx.get("pregnancy_logic") or "SAFE")}
+        return tech2
+
+    logic = (ctx.get("pregnancy_logic") or "SAFE").upper()
+
+    if logic == "BLOCK":
+        return None
+
+    if logic == "MODIFY":
+        mod = ctx.get("pregnancy_mod_phases") or {}
+        shaped = dict(tech)
+        phases = dict(shaped.get("phases") or {})
+        shaped["phases"] = {
+            "inhale_sec": int(mod.get("inhale_sec", phases.get("inhale_sec", 4))),
+            "hold_in_sec": int(mod.get("hold_in_sec", 0)),  # Always 0 for pregnancy
+            "exhale_sec": int(mod.get("exhale_sec", phases.get("exhale_sec", 4))),
+            "hold_out_sec": int(mod.get("hold_out_sec", 0)),  # Always 0 for pregnancy
+        }
+        shaped["effective_context"] = {"pregnancy_logic": "MODIFY_APPLIED"}
+        return shaped
+
+    shaped = dict(tech)
+    shaped["effective_context"] = {"pregnancy_logic": "SAFE"}
+    return shaped
+
+
+def build_candidate_techniques(user_profile: dict, techniques: list[dict]) -> list[dict]:
+    """
+    Build candidate techniques list by normalizing each technique for the user profile.
+    BLOCK techniques are excluded, MODIFY techniques have phases overridden.
+    """
+    shaped = []
+    for t in techniques:
+        t2 = normalize_technique_for_profile(t, user_profile)
+        if t2 is not None:
+            shaped.append(t2)
+    return shaped
+
+
+def build_instruction_text(tech: dict) -> str:
+    """
+    Build deterministic instruction text from technique phases.
+    This ensures consistency and safety (especially for pregnancy mode where holds are 0).
+    LLM does NOT generate this - it comes from the vetted DB.
+    """
+    phases = tech.get("phases", {})
+    inhale = int(phases.get("inhale_sec", 4))
+    hold_in = int(phases.get("hold_in_sec", 0) or 0)
+    exhale = int(phases.get("exhale_sec", 4))
+    hold_out = int(phases.get("hold_out_sec", 0) or 0)
+    
+    steps = []
+    steps.append(f"Inhale through your nose for {inhale} second{'s' if inhale != 1 else ''}.")
+    
+    if hold_in > 0:
+        steps.append(f"Gently hold for {hold_in} second{'s' if hold_in != 1 else ''}.")
+    
+    steps.append(f"Exhale slowly through your mouth for {exhale} second{'s' if exhale != 1 else ''}.")
+    
+    if hold_out > 0:
+        steps.append(f"Pause for {hold_out} second{'s' if hold_out != 1 else ''} before the next breath.")
+    
+    return " ".join(steps)
+
 # --- LOGGING UTILS ---
 LOG_FILE = "server_debug.log"
 
@@ -100,12 +195,16 @@ def log_debug(message: str):
 
 
 
-@track(name="retrieve_knowledge")
-def get_safe_techniques(profile: UserProfile):
+@track(name="rag_filter_techniques")
+def get_safe_techniques(profile: UserProfile) -> Tuple[List[Dict], str]:
     """
-    Filter techniques based on V2 context_rules:
+    Filter and normalize techniques based on V2 context_rules:
     - time_of_day: ["day"], ["night"], or ["any"]
     - pregnancy_logic: "SAFE", "BLOCK", or "MODIFY"
+    
+    Returns:
+        - candidates: List of shaped technique dicts (BLOCK excluded, MODIFY phases applied)
+        - techniques_str: Formatted string for LLM prompt
     """
     log_debug("DEBUG: Filtering techniques (V2 Schema)...")
     
@@ -119,38 +218,46 @@ def get_safe_techniques(profile: UserProfile):
     time_period = "night" if is_night else "day"
     log_debug(f"DEBUG: Hour={hour}, Period={time_period}, Pregnant={profile.is_pregnant}")
     
-    safe_list = []
-    techniques = DB.get("techniques", [])
+    # Convert profile to dict for normalization
+    profile_dict = {
+        "is_pregnant": profile.is_pregnant,
+        "trimester": profile.trimester,
+        "current_time": profile.current_time,
+        "country_code": profile.country_code
+    }
     
-    for tech in techniques:
+    all_techniques = DB.get("techniques", [])
+    
+    # First filter by time of day
+    time_filtered = []
+    for tech in all_techniques:
+        context = tech.get("context_rules", {})
+        allowed_times = context.get("time_of_day", ["any"])
+        if time_period in allowed_times or "any" in allowed_times:
+            time_filtered.append(tech)
+    
+    # Then normalize for pregnancy (BLOCK excluded, MODIFY phases applied)
+    candidates = build_candidate_techniques(profile_dict, time_filtered)
+    
+    # Build formatted string for LLM
+    safe_list = []
+    for tech in candidates:
         tech_id = tech.get("id", "")
         title = tech.get("title", "")
-        context = tech.get("context_rules", {})
         agent_config = tech.get("agent_config", {})
+        phases = tech.get("phases", {})
         
-        # 1. TIME OF DAY FILTER
-        allowed_times = context.get("time_of_day", ["any"])
-        if time_period not in allowed_times and "any" not in allowed_times:
-            log_debug(f"DEBUG: Skipping {title} - wrong time ({time_period} not in {allowed_times})")
-            continue
+        # Build instruction from actual phases (already normalized)
+        inhale = phases.get("inhale_sec", 4)
+        hold_in = phases.get("hold_in_sec", 0)
+        exhale = phases.get("exhale_sec", 4)
+        hold_out = phases.get("hold_out_sec", 0)
         
-        # 2. PREGNANCY FILTER & INSTRUCTION MODIFICATION
-        instruction_text = agent_config.get("instruction_clue", "")
+        if hold_in > 0 or hold_out > 0:
+            instruction_text = f"Inhale {inhale}s, Hold {hold_in}s, Exhale {exhale}s, Hold {hold_out}s"
+        else:
+            instruction_text = f"Inhale {inhale}s, Exhale {exhale}s (no holding)"
         
-        if profile.is_pregnant:
-            pregnancy_logic = context.get("pregnancy_logic", "SAFE")
-            
-            if pregnancy_logic == "BLOCK":
-                alt_id = context.get("pregnancy_alternative_id")
-                log_debug(f"DEBUG: BLOCKED {title} for pregnancy. Alt: {alt_id}")
-                continue
-            
-            elif pregnancy_logic == "MODIFY":
-                # CRITICAL FIX: Tell LLM that this technique is modified for pregnancy
-                instruction_text = f"[MODIFIED FOR PREGNANCY - No Breath Holding] {instruction_text.replace('Hold', 'Skip hold')}"
-                log_debug(f"DEBUG: {title} instruction modified for pregnancy")
-        
-        # 3. Build entry for LLM context
         entry = (
             f"- ID: {tech_id} | Name: {title}\n"
             f"  Purpose: {agent_config.get('purpose', 'General relaxation')}\n"
@@ -158,22 +265,24 @@ def get_safe_techniques(profile: UserProfile):
         )
         safe_list.append(entry)
     
-    # Return as formatted string for LLM
     techniques_str = "\n".join(safe_list)
-    log_debug(f"DEBUG: Final Safe List ({len(safe_list)} items):\n{techniques_str}")
-    return techniques_str
+    log_debug(f"DEBUG: Final Safe List ({len(candidates)} candidates):\n{techniques_str}")
+    return candidates, techniques_str
 
-@track(name="guardrail_check")
+@track(name="guardrail_crisis_check")
 def check_crisis_intent(user_input: str):
-    # DISABLED FOR DEBUGGING
+    """Check for crisis keywords in user input."""
     crisis_keywords = ["suicide", "kill myself", "i want to die", "heart attack"] 
     for word in crisis_keywords:
         if word in user_input.lower():
             return {"is_crisis": True, "category": "MEDICAL_EMERGENCY" if "heart" in word else "SUICIDE"}
     return {"is_crisis": False, "category": "NONE"}
 
-@track(name="generate_agent_response")
 def generate_response(request: UserRequest):
+    """
+    Generate agent response with Opik tracing.
+    Returns response without thought_process (only logged to Opik metadata).
+    """
     log_debug(f"DEBUG: Processing request: {request.user_input}")
     
     # A. Guardrail
@@ -189,14 +298,94 @@ def generate_response(request: UserRequest):
             }
         }
 
-    # B. RAG
-    safe_techniques = get_safe_techniques(request.user_profile)
+    # B. RAG - Get shaped candidates
+    candidates, techniques_str = get_safe_techniques(request.user_profile)
     
-    # C. Inference - Structured JSON Output with Thought Process for Opik
-    MODEL_NAME = os.environ.get("LLM_MODEL_NAME", "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8")
-    log_debug(f"DEBUG: Calling LLM ({MODEL_NAME}) with structured JSON prompt...")
+    if not candidates:
+        return {"message_for_user": "I'm here to help you relax.", "duration_seconds": 180}
     
-    system_prompt = f"""You are 'Inua', an expert Somatic Breath Coach.
+    # C. LLM Inference with Opik tracing
+    log_debug(f"DEBUG: Calling LLM ({INUA_MODEL_VERSION}) with {len(candidates)} candidates...")
+    
+    # Build prompt based on version
+    if INUA_PROMPT_VERSION == "v3":
+        # v3 final prompt
+        system_prompt = f"""You are Inua, a calm, empathetic, and safety-first Somatic Breath Coach.
+
+Your role is to SELECT the single most appropriate breathing technique
+from the provided list, based on the user's current emotional state and context.
+You are NOT a medical professional and you must avoid medical claims.
+
+USER CONTEXT:
+- Pregnant: {request.user_profile.is_pregnant}
+- Time: {request.user_profile.current_time}
+
+SAFETY RULES (STRICT):
+- If Pregnant = true:
+  - You MUST NOT select any technique with pregnancy_logic = BLOCK.
+  - You MUST select ONLY techniques marked SAFE or MODIFY_APPLIED.
+  - All breath-hold phases have already been removed in the provided techniques.
+- Do NOT encourage breath holding, strain, or discomfort.
+- If no technique clearly matches, choose the most calming SAFE option.
+
+AVAILABLE TECHNIQUES (Already safety-filtered):
+{techniques_str}
+
+INSTRUCTIONS:
+1. Infer the user's PRIMARY state as ONE label:
+   anxiety | insomnia | stress | low_energy | overwhelm | unknown
+2. Select ONE technique_id strictly from the list above.
+   - Do NOT invent techniques.
+   - Do NOT modify technique IDs.
+3. Write a short, warm empathy_line validating the user's feeling.
+4. Write a short, non-medical reason_line explaining why this technique fits.
+5. Do NOT describe how to perform the breathing technique.
+   (Instructions are handled separately by the system.)
+
+OUTPUT FORMAT (JSON ONLY):
+Return ONLY the raw JSON object.
+No markdown. No extra text. No explanations outside JSON.
+
+{{
+  "technique_id": "exact_id_from_list",
+  "emotion_label": "anxiety | insomnia | stress | low_energy | overwhelm | unknown",
+  "empathy_line": "One short, warm sentence validating their feeling.",
+  "reason_line": "One short sentence explaining why this technique helps.",
+  "selection_rationale": "Max 120 characters. Plain language. Why this technique was chosen."
+}}"""
+    elif INUA_PROMPT_VERSION == "v2":
+        pregnancy_note = ""
+        if request.user_profile.is_pregnant:
+            pregnancy_note = "\n\nCRITICAL PREGNANCY RULES:\n- You MUST NOT choose techniques where pregnancy_logic is BLOCK.\n- Prefer SAFE or MODIFY_APPLIED techniques only.\n- When pregnant, hold phases must be 0 (already applied in candidate list)."
+        
+        system_prompt = f"""You are 'Inua', an expert Somatic Breath Coach.
+Analyze the user's emotional state and select the BEST matching breathing technique ID from the available list.
+
+### USER CONTEXT
+- Pregnant: {request.user_profile.is_pregnant}
+- Time: {request.user_profile.current_time}
+{pregnancy_note}
+
+### AVAILABLE TECHNIQUES
+{techniques_str}
+
+### INSTRUCTIONS
+1. Analyze the user's input.
+2. Select one technique ID from the list above.
+3. Generate a JSON response.
+4. Do NOT describe how to perform the technique (breathing instructions are generated automatically from the database).
+
+### OUTPUT FORMAT (JSON ONLY)
+Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add conversational text.
+
+{{
+  "technique_id": "exact_id_from_list",
+  "empathy_line": "A warm, short sentence validating their feeling.",
+  "reason_line": "A short 1-sentence explanation of why this technique helps."
+}}"""
+    else:
+        # v1 prompt
+        system_prompt = f"""You are 'Inua', an expert Somatic Breath Coach.
 Analyze the user's emotional state and select the BEST matching breathing technique ID from the available list.
 
 ### USER CONTEXT
@@ -204,138 +393,161 @@ Analyze the user's emotional state and select the BEST matching breathing techni
 - Time: {request.user_profile.current_time}
 
 ### AVAILABLE TECHNIQUES
-{safe_techniques}
+{techniques_str}
 
 ### INSTRUCTIONS
 1. Analyze the user's input.
 2. Select one technique ID.
 3. Generate a JSON response.
+4. Do NOT describe how to perform the technique (breathing instructions are generated automatically from the database).
 
 ### OUTPUT FORMAT (JSON ONLY)
 Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add conversational text.
 
 {{
-  "thought_process": "Brief reasoning. E.g., User is anxious + pregnant -> box_breath blocked -> selecting physiological_sigh.",
   "technique_id": "exact_id_from_list",
   "empathy_line": "A warm, short sentence validating their feeling.",
   "reason_line": "A short 1-sentence explanation of why this technique helps."
-}}
-"""
+}}"""
     
+    # LLM call with Opik span
+    selection_note = ""
     try:
-        with open("c:\\Code\\InuaBreath\\backend\\debug_prompt.txt", "w", encoding="utf-8") as f:
-            f.write(system_prompt)
-    except: pass
-    
-    try:
-        response_obj = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": request.user_input}
-            ],
-            temperature=0.3  # Lower temperature for JSON stability
-        )
-        content = response_obj.choices[0].message.content
+        if OPIK_AVAILABLE and opik:
+            with opik.start_as_current_span(
+                name="llm_select_and_compose",
+                type="llm",
+                metadata={
+                    "model": INUA_MODEL_VERSION,
+                    "prompt_version": INUA_PROMPT_VERSION,
+                    "candidate_count": len(candidates)
+                },
+                input={"user_input_preview": request.user_input[:200], "candidate_count": len(candidates)},
+            ):
+                response_obj = client.chat.completions.create(
+                    model=INUA_MODEL_VERSION,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": request.user_input}
+                    ],
+                    temperature=0.3
+                )
+                content = response_obj.choices[0].message.content
+        else:
+            response_obj = client.chat.completions.create(
+                model=INUA_MODEL_VERSION,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": request.user_input}
+                ],
+                temperature=0.3
+            )
+            content = response_obj.choices[0].message.content
+        
         log_debug("DEBUG: LLM Response Received.")
         log_debug(f"RAW LLM RESPONSE: {content}")
         
-        # Robust JSON Parsing using Regex
+        # Parse JSON
         import re
         try:
-            # 1. Try to find JSON object structure
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
             if json_match:
                 content = json_match.group(0)
-            
-            # 2. Cleanup markdown code blocks if any remain inside
             if "```json" in content:
                 content = content.replace("```json", "").replace("```", "").strip()
             if "```" in content:
                 content = content.replace("```", "").strip()
         except:
-            pass # Fallback to original content to try standard json.loads
+            pass
         
-        try:
-            llm_output = json.loads(content)
-            
-            # --- STRUCTURED MESSAGE CONSTRUCTION ---
-            tech_id = llm_output.get("technique_id", "equal_breathing")
-            empathy = llm_output.get("empathy_line", "I'm here to help you feel better.")
-            reason = llm_output.get("reason_line", "This breathing technique will help you relax.")
-            
-            # Find technique in DB
-            found_tech = None
-            for tech in DB.get("techniques", []):
-                if tech.get("id") == tech_id:
+        llm_output = json.loads(content)
+        tech_id = llm_output.get("technique_id", "equal_breathing")
+        empathy = llm_output.get("empathy_line", "I'm here to help you feel better.")
+        reason = llm_output.get("reason_line", "This breathing technique will help you relax.")
+        
+        # v3 fields (optional, for backward compatibility)
+        emotion_label = llm_output.get("emotion_label", None)
+        selection_rationale = llm_output.get("selection_rationale", None)
+        
+        # Build selection note for Opik (not returned to user)
+        if INUA_PROMPT_VERSION == "v3" and selection_rationale:
+            selection_note = f"Selected {tech_id} (emotion: {emotion_label or 'unknown'}): {selection_rationale}"
+        else:
+            selection_note = f"Selected {tech_id}: {reason}"
+        
+        # Find technique in candidates (already shaped)
+        found_tech = None
+        for tech in candidates:
+            if tech.get("id") == tech_id:
+                found_tech = tech
+                break
+        
+        # Fallback
+        if not found_tech:
+            for tech in candidates:
+                if tech.get("id") == "equal_breathing":
                     found_tech = tech
+                    tech_id = "equal_breathing"
                     break
+        
+        if not found_tech and candidates:
+            found_tech = candidates[0]
+            tech_id = found_tech.get("id", "equal_breathing")
+        
+        if found_tech:
+            title = found_tech.get("title", "Breathing Exercise")
+            phases = found_tech.get("phases", {})
+            duration = found_tech.get("default_duration_sec", 180)
             
-            # Fallback to equal_breathing if not found
-            if not found_tech:
-                for tech in DB.get("techniques", []):
-                    if tech.get("id") == "equal_breathing":
-                        found_tech = tech
-                        tech_id = "equal_breathing"
-                        break
+            # Build deterministic instruction from DB phases (not from LLM)
+            instruction_text = build_instruction_text(found_tech)
             
-            if found_tech:
-                title = found_tech.get("title", "Breathing Exercise")
-                agent_config = found_tech.get("agent_config", {})
-                original_instruction = agent_config.get("instruction_clue", "Breathe in slowly, then breathe out.")
-                duration = found_tech.get("default_duration_sec", 180)
-                
-                # Get phases (may be modified for pregnancy)
-                context = found_tech.get("context_rules", {})
-                phases = found_tech.get("phases", {})
-                
-                pregnancy_modified = False
-                if request.user_profile.is_pregnant and context.get("pregnancy_logic") == "MODIFY":
-                    phases = context.get("pregnancy_mod_phases", phases)
-                    pregnancy_modified = True
-                    log_debug(f"DEBUG: Applied pregnancy_mod_phases for {tech_id}")
-                
-                # Generate instruction from actual phases
-                if pregnancy_modified:
-                    # Build instruction from modified phases (no holds)
-                    inhale = phases.get("inhale_sec", 4)
-                    exhale = phases.get("exhale_sec", 4)
-                    instruction = f"Inhale through nose for {inhale}s, exhale through mouth for {exhale}s. (No breath holding)"
-                    safety_note = "\n\n_For your safety, I've removed breath-holding from this technique._"
-                    message = f"{empathy} {reason}{safety_note}\n\n**{title}**\n{instruction}"
-                else:
-                    instruction = original_instruction
-                    message = f"{empathy} {reason}\n\n**{title}**\n{instruction}"
-                
-                # Build response
-                result = {
-                    "message_for_user": message,
-                    "suggested_technique_id": tech_id,
-                    "thought_process": llm_output.get("thought_process", f"Selected {tech_id}"),
-                    "duration_seconds": duration,
-                    "suggested_technique": {
-                        "id": tech_id,
-                        "title": title,
-                        "category": found_tech.get("category", ""),
-                        "phases": phases,
-                        "ui_texts": found_tech.get("ui_texts", {}),
-                        "default_duration_sec": duration
-                    }
+            # Message without instruction (LLM only provides empathy and reason)
+            message = f"{empathy} {reason}"
+            
+            # Log selection note to Opik metadata if available
+            if OPIK_AVAILABLE and opik:
+                try:
+                    current_span = opik.get_current_span()
+                    if current_span:
+                        current_span.metadata["selection_note"] = selection_note[:500]
+                        # v3: Add emotion_label and selection_rationale to metadata
+                        if INUA_PROMPT_VERSION == "v3":
+                            if emotion_label:
+                                current_span.metadata["emotion_label"] = emotion_label
+                            if selection_rationale:
+                                current_span.metadata["selection_rationale"] = selection_rationale[:200]
+                except:
+                    pass
+            
+            result = {
+                "message_for_user": message,
+                "suggested_technique_id": tech_id,
+                "instruction_text": instruction_text,  # Deterministic from DB, not LLM
+                "duration_seconds": duration,
+                "suggested_technique": {
+                    "id": tech_id,
+                    "title": title,
+                    "category": found_tech.get("category", ""),
+                    "phases": phases,  # Already normalized (safe for pregnancy)
+                    "ui_texts": found_tech.get("ui_texts", {}),
+                    "default_duration_sec": duration
                 }
-                
-                # Duration adjustments
-                user_input_lower = request.user_input.lower()
-                if "sleep" in user_input_lower or "insomnia" in user_input_lower:
-                    result["duration_seconds"] = max(duration, 240)
-                
-                log_debug(f"FINAL RESULT: {result}")
-                return result
-            else:
-                return {"message_for_user": "Let me help you relax.", "duration_seconds": 180}
-        except json.JSONDecodeError:
-            log_debug(f"JSON ERROR content: {content}")
-            return {"message_for_user": content, "suggested_technique_id": None, "duration_seconds": 180}
+            }
             
+            # Duration adjustments
+            user_input_lower = request.user_input.lower()
+            if "sleep" in user_input_lower or "insomnia" in user_input_lower:
+                result["duration_seconds"] = max(duration, 240)
+            
+            log_debug(f"FINAL RESULT: {result}")
+            return result
+        else:
+            return {"message_for_user": "Let me help you relax.", "duration_seconds": 180}
+            
+    except json.JSONDecodeError:
+        log_debug(f"JSON ERROR content: {content}")
+        return {"message_for_user": content, "suggested_technique_id": None, "duration_seconds": 180}
     except Exception as e:
         import traceback
         log_debug(f"LLM ERROR: {e}")
@@ -384,6 +596,30 @@ def get_techniques_endpoint(is_pregnant: bool = False, is_night: bool = False):
 @track(name="agent_chat_endpoint")
 def chat_endpoint(request: UserRequest):
     log_debug("DEBUG: Endpoint hit")
+    
+    # Generate session ID and set request metadata in Opik
+    session_id = str(uuid.uuid4())
+    
+    if OPIK_AVAILABLE and opik:
+        try:
+            with opik.start_as_current_span(
+                name="request_metadata",
+                type="general",
+                metadata={
+                    "session_id": session_id,
+                    "prompt_version": INUA_PROMPT_VERSION,
+                    "model_version": INUA_MODEL_VERSION,
+                    "is_pregnant": request.user_profile.is_pregnant,
+                    "trimester": request.user_profile.trimester,
+                    "country_code": request.user_profile.country_code,
+                    "current_time": request.user_profile.current_time,
+                    "mode": "pregnancy" if request.user_profile.is_pregnant else "normal"
+                }
+            ):
+                pass  # Metadata set, continue
+        except Exception as e:
+            log_debug(f"Opik metadata span error: {e}")
+    
     return generate_response(request)
 
 if __name__ == "__main__":
