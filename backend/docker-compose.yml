@@ -1,11 +1,31 @@
 version: '3.8'
 
 services:
-  backend:
-    build: .
+  inua-breath-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inua-breath-backend
     ports:
       - "8001:8001"
-    env_file:
-      - .env
-    restart: always
-    container_name: inua_backend
+    environment:
+      # IO Intelligence API
+      - IOINTELLIGENCE_API_KEY=${IOINTELLIGENCE_API_KEY}
+      # Opik API
+      - OPIK_API_KEY=${OPIK_API_KEY}
+      - OPIK_PROJECT_NAME=${OPIK_PROJECT_NAME:-InuaBreath}
+      # LLM Model
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8}
+      # Prompt Version
+      - INUA_PROMPT_VERSION=${INUA_PROMPT_VERSION:-v3}
+      - INUA_MODEL_VERSION=${INUA_MODEL_VERSION:-${LLM_MODEL_NAME}}
+    volumes:
+      # Mount breathing_db.json if you want to update it without rebuilding
+      - ./breathing_db.json:/app/breathing_db.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

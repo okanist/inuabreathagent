@@ -417,9 +417,23 @@ export default function HomeScreen() {
                 };
             }
 
+            // Build message text with instruction if available
+            let messageText = response.message_for_user || "I can help with that.";
+            
+            // Add instruction_text in format: "**Technique**: instruction"
+            if (response.instruction_text && actionData?.title) {
+                messageText += `\n\n**${actionData.title}**: ${response.instruction_text}`;
+            } else if (response.instruction_text) {
+                // Fallback if title not available
+                const techTitle = suggested?.title || formatTechId(techId || '');
+                if (techTitle) {
+                    messageText += `\n\n**${techTitle}**: ${response.instruction_text}`;
+                }
+            }
+
             const agentMsg: Message = {
                 id: Date.now().toString() + '_ai',
-                text: response.message_for_user || "I can help with that.",
+                text: messageText,
                 sender: 'inua',
                 timestamp: Date.now(),
                 action: actionData ? {

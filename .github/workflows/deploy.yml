@@ -1,0 +1,93 @@
+name: Deploy Inua Backend to VPS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'  # Sadece backend klasörü değiştiğinde deploy et
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            # VPS'teki backend klasörüne git
+            cd ~/inua-breath-backend
+            
+            # .env dosyasını yedekle (önemli!)
+            if [ -f .env ]; then
+              cp .env /tmp/inua-backend-env-backup
+              echo "✅ .env backed up"
+            fi
+            
+            # Git repository yoksa clone et, varsa pull yap
+            if [ ! -d .git ]; then
+              echo "Git repository not found. Setting up..."
+              cd ~
+              # Repo'yu geçici olarak clone et
+              git clone https://github.com/okanist/inuabreathagent.git inua-breath-backend-temp
+              # Backend dosyalarını mevcut klasöre kopyala
+              if [ -d inua-breath-backend ]; then
+                cp -r inua-breath-backend-temp/backend/* inua-breath-backend/
+              else
+                mkdir -p inua-breath-backend
+                cp -r inua-breath-backend-temp/backend/* inua-breath-backend/
+              fi
+              # .env dosyasını restore et
+              if [ -f /tmp/inua-backend-env-backup ]; then
+                cp /tmp/inua-backend-env-backup inua-breath-backend/.env
+                echo "✅ .env restored"
+              fi
+              # Geçici klasörü temizle
+              rm -rf inua-breath-backend-temp
+              cd ~/inua-breath-backend
+            else
+              echo "Pulling latest changes..."
+              git pull origin main
+              # Backend klasöründeki değişiklikleri mevcut klasöre kopyala
+              if [ -d backend ]; then
+                cp -r backend/* . 2>/dev/null || true
+              fi
+              # .env dosyasını restore et (eğer üzerine yazıldıysa)
+              if [ -f /tmp/inua-backend-env-backup ] && [ ! -f .env ]; then
+                cp /tmp/inua-backend-env-backup .env
+                echo "✅ .env restored"
+              fi
+            fi
+            
+            # Docker container'ları durdur
+            echo "Stopping containers..."
+            docker compose down || true
+            
+            # Container'ları rebuild ve başlat
+            echo "Building and starting containers..."
+            docker compose build --no-cache
+            docker compose up -d
+            
+            # Health check
+            echo "Waiting for container to start..."
+            sleep 5
+            if curl -f http://localhost:8001/docs > /dev/null 2>&1; then
+              echo "✅ Backend is healthy!"
+            else
+              echo "⚠️  Health check failed. Check logs: docker compose logs"
+              docker compose logs --tail 20
+              exit 1
+            fi
+            
+            # Ngrok kontrol (eğer kullanılıyorsa)
+            if pgrep -f "ngrok http 8001" > /dev/null; then
+              echo "✅ Ngrok is running"
+            else
+              echo "⚠️  Ngrok is not running. Start it manually if needed."
+            fi

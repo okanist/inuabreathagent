@@ -33,6 +33,7 @@ interface UserProfile {
 
 interface AgentResponse {
     message_for_user?: string;
+    instruction_text?: string;  // Deterministic instruction from DB
     suggested_technique?: BreathingTechnique | null;
     suggested_technique_id?: string | null;
     duration_seconds?: number;
@@ -248,7 +249,9 @@ export class BreathingAgentService {
         try {
             // Priority: Environment Variable (Vercel/Prod) -> Localhost (Dev)
             // Note for Physical Android Devices: Change to your local IP (e.g. 192.168.1.11)
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8001/api/agent/chat";
+            // For Web: Use EXPO_PUBLIC_API_URL environment variable
+            const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8001";
+            const API_URL = `${BASE_URL}/api/agent/chat`;
 
             if (!process.env.EXPO_PUBLIC_API_URL) {
                 console.debug("Using Dev API Fallback:", API_URL);

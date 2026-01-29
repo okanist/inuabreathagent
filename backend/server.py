@@ -556,6 +556,11 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
 
 # --- API ENDPOINTS ---
 
+@app.get("/health")
+def health_check():
+    """Health check endpoint for Docker/load balancers"""
+    return {"status": "healthy", "service": "inua-breath-backend"}
+
 @app.get("/api/breathing/techniques")
 def get_techniques_endpoint(is_pregnant: bool = False, is_night: bool = False):
     """
@@ -623,4 +628,5 @@ def chat_endpoint(request: UserRequest):
     return generate_response(request)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)

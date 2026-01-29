@@ -1,21 +1,32 @@
-# Use official Python runtime
 FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements file (ensure it lists all dependencies)
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install dependencies (no cache for smaller size)
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code (server.py, breathing_db.json, .env if needed)
+# Copy application code
 COPY . .
 
-# Expose port 8001
+# Expose port
 EXPOSE 8001
 
-# Run server with Uvicorn (Production Mode)
-# Using --host 0.0.0.0 is critical for Docker networking
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
+# Set environment variables (can be overridden)
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8001/health', timeout=5)" || exit 1
+
+# Run the application
+CMD ["python", "server.py"]
