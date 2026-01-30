@@ -19,8 +19,19 @@ from slowapi.errors import RateLimitExceeded
 # --- CONFIGURATION ---
 app = FastAPI(title="Breathing AI Agent Backend")
 
-# Rate Limiting Setup
-limiter = Limiter(key_func=get_remote_address)
+# Rate Limiting Setup - Support for load balancers (X-Forwarded-For)
+def get_client_ip(request: Request) -> str:
+    """Get client IP considering X-Forwarded-For header for load balancers"""
+    # Check X-Forwarded-For first (for load balancers/reverse proxies)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # Take first IP (original client IP)
+        return forwarded_for.split(",")[0].strip()
+    
+    # Fallback to direct IP
+    return get_remote_address(request)
+
+limiter = Limiter(key_func=get_client_ip)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -30,10 +41,18 @@ ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 if ALLOWED_ORIGINS == ["*"]:
     print("⚠️  WARNING: CORS allows all origins. Set ALLOWED_ORIGINS env var in production!", flush=True)
 
+# Security: Credentials cannot be used with wildcard origins (2026 security standard)
+# If using wildcard, disable credentials for security
+if ALLOWED_ORIGINS == ["*"]:
+    allow_credentials = False
+    print("⚠️  WARNING: Credentials disabled due to wildcard CORS origins!", flush=True)
+else:
+    allow_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS != ["*"] else ["*"],
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
@@ -109,15 +128,30 @@ class UserRequest(BaseModel):
         # Remove potential XSS attempts
         v = v.strip()
         
-        # Check for suspicious patterns (basic protection)
-        suspicious_patterns = [
+        # Check for suspicious patterns (XSS protection)
+        xss_patterns = [
             r'<script[^>]*>',
             r'javascript:',
             r'on\w+\s*=',
             r'data:text/html',
         ]
         
-        for pattern in suspicious_patterns:
+        for pattern in xss_patterns:
+            if re.search(pattern, v, re.IGNORECASE):
+                raise ValueError("Invalid input detected")
+        
+        # Prompt injection protection (2026 security standard)
+        prompt_injection_patterns = [
+            r'ignore\s+(previous|above|all)\s+instructions?',
+            r'forget\s+(previous|above|all)',
+            r'you\s+are\s+now',
+            r'act\s+as\s+if',
+            r'pretend\s+to\s+be',
+            r'disregard\s+(previous|above)',
+            r'override\s+(system|previous)',
+        ]
+        
+        for pattern in prompt_injection_patterns:
             if re.search(pattern, v, re.IGNORECASE):
                 raise ValueError("Invalid input detected")
         
@@ -202,6 +236,31 @@ def build_candidate_techniques(user_profile: dict, techniques: list[dict]) -> li
             shaped.append(t2)
     return shaped
 
+
+def sanitize_user_input_for_llm(user_input: str) -> str:
+    """
+    Sanitize user input before sending to LLM to prevent prompt injection.
+    Security: 2026 standard - prompt injection protection.
+    """
+    # Remove common prompt injection patterns
+    injection_patterns = [
+        r'ignore\s+(previous|above|all)\s+instructions?',
+        r'forget\s+(previous|above|all)',
+        r'you\s+are\s+now',
+        r'act\s+as\s+if',
+        r'pretend\s+to\s+be',
+        r'disregard\s+(previous|above)',
+        r'override\s+(system|previous)',
+    ]
+    
+    sanitized = user_input
+    for pattern in injection_patterns:
+        sanitized = re.sub(pattern, '', sanitized, flags=re.IGNORECASE)
+    
+    # Limit length to prevent prompt injection via long inputs
+    sanitized = sanitized[:1500]  # Max 1500 chars
+    
+    return sanitized.strip()
 
 def build_instruction_text(tech: dict) -> str:
     """
@@ -330,7 +389,8 @@ def generate_response(request: UserRequest):
     Generate agent response with Opik tracing.
     Returns response without thought_process (only logged to Opik metadata).
     """
-    log_debug(f"DEBUG: Processing request: {request.user_input}")
+        # Security: Don't log user input directly (privacy/GDPR)
+        log_debug(f"DEBUG: Processing request (input length: {len(request.user_input)} chars)")
     
     # A. Guardrail
     intent = check_crisis_intent(request.user_input)
@@ -458,6 +518,8 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
 }}"""
     
     # LLM call with Opik span
+    # Security: Sanitize user input before sending to LLM
+    sanitized_input = sanitize_user_input_for_llm(request.user_input)
     selection_note = ""
     try:
         if OPIK_AVAILABLE and opik:
@@ -469,32 +531,35 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                     "prompt_version": INUA_PROMPT_VERSION,
                     "candidate_count": len(candidates)
                 },
-                input={"user_input_preview": request.user_input[:200], "candidate_count": len(candidates)},
+                input={"user_input_preview": sanitized_input[:200], "candidate_count": len(candidates)},
             ):
                 response_obj = client.chat.completions.create(
                     model=INUA_MODEL_VERSION,
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": request.user_input}
+                        {"role": "user", "content": sanitized_input}
                     ],
                     temperature=0.3
                 )
                 content = response_obj.choices[0].message.content
         else:
+            # Security: Sanitize user input before sending to LLM
+            sanitized_input = sanitize_user_input_for_llm(request.user_input)
             response_obj = client.chat.completions.create(
                 model=INUA_MODEL_VERSION,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": request.user_input}
+                    {"role": "user", "content": sanitized_input}
                 ],
                 temperature=0.3
             )
             content = response_obj.choices[0].message.content
         
         log_debug("DEBUG: LLM Response Received.")
-        log_debug(f"RAW LLM RESPONSE: {content}")
+        # Security: Don't log raw LLM response (may contain sensitive data)
+        log_debug(f"DEBUG: LLM Response length: {len(content) if content else 0} chars")
         
-        # Parse JSON
+        # Parse JSON with security validation
         import re
         try:
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
@@ -507,7 +572,23 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
         except:
             pass
         
-        llm_output = json.loads(content)
+        # Security: Safe JSON parsing with whitelist validation
+        try:
+            llm_output = json.loads(content)
+            # Whitelist validation - only allow expected keys
+            allowed_keys = {
+                "technique_id", "empathy_line", "reason_line", 
+                "emotion_label", "selection_rationale"
+            }
+            # Filter to only allowed keys and ensure values are strings
+            llm_output = {
+                k: str(v)[:500] if isinstance(v, str) else str(v)[:500] 
+                for k, v in llm_output.items() 
+                if k in allowed_keys and isinstance(v, (str, int, float, type(None)))
+            }
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            log_debug(f"JSON ERROR: Failed to parse LLM response: {type(e).__name__}")
+            return {"message_for_user": "I'm having trouble processing your request. Please try again.", "suggested_technique_id": None, "duration_seconds": 180}
         tech_id = llm_output.get("technique_id", "equal_breathing")
         empathy = llm_output.get("empathy_line", "I'm here to help you feel better.")
         reason = llm_output.get("reason_line", "This breathing technique will help you relax.")
@@ -593,7 +674,8 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
             return {"message_for_user": "Let me help you relax.", "duration_seconds": 180}
             
     except json.JSONDecodeError:
-        log_debug(f"JSON ERROR content: {content[:200]}")  # Limit logged content
+        # Security: Don't log JSON content (may contain sensitive data)
+        log_debug("JSON ERROR: Failed to parse LLM response")
         return {"message_for_user": "I'm having trouble processing your request. Please try again.", "suggested_technique_id": None, "duration_seconds": 180}
     except Exception as e:
         import traceback
@@ -626,7 +708,8 @@ async def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = D
 # --- API ENDPOINTS ---
 
 @app.get("/health")
-def health_check():
+@limiter.limit("60/minute")  # Rate limiting for health endpoint (2026 security)
+def health_check(request: Request):
     """Health check endpoint for Docker/load balancers"""
     return {"status": "healthy", "service": "inua-breath-backend"}
 
