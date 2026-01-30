@@ -85,7 +85,7 @@ INUA_MODEL_VERSION = os.environ.get("INUA_MODEL_VERSION", MODEL_NAME)
 class UserProfile(BaseModel):
     is_pregnant: bool
     trimester: Optional[int] = Field(None, ge=1, le=3)
-    current_time: str = Field(..., regex=r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')
+    current_time: str = Field(..., pattern=r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')
     country_code: Optional[str] = Field("TR", max_length=2, min_length=2)
     
     @validator('country_code')
