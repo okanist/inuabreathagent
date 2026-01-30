@@ -4,23 +4,38 @@ load_dotenv()
 
 import json
 import uuid
+import re
 from typing import Optional, List, Dict, Tuple
-from fastapi import FastAPI, HTTPException, Body
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Body, Request, Depends, Header
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field, validator
 from openai import OpenAI
 import uvicorn
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # --- CONFIGURATION ---
 app = FastAPI(title="Breathing AI Agent Backend")
 
-# CORS Middleware for Web Support
-from fastapi.middleware.cors import CORSMiddleware
+# Rate Limiting Setup
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS Middleware - Security: Restrict origins in production
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+# In production, set ALLOWED_ORIGINS env var: "https://yourdomain.com,http://localhost:3000"
+if ALLOWED_ORIGINS == ["*"]:
+    print("⚠️  WARNING: CORS allows all origins. Set ALLOWED_ORIGINS env var in production!", flush=True)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS != ["*"] else ["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods including OPTIONS
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Opik Mocking
@@ -53,7 +68,8 @@ except:
 # Initialize Client
 api_key = os.environ.get("IOINTELLIGENCE_API_KEY", "").strip()
 print(f"DEBUG INIT: CWD = {os.getcwd()}", flush=True)
-print(f"DEBUG INIT: API Key present? {'YES' if api_key else 'NO'} (Length: {len(api_key)})", flush=True)
+# Security: Don't log API key length in production
+print(f"DEBUG INIT: API Key present? {'YES' if api_key else 'NO'}", flush=True)
 
 client = OpenAI(
     base_url="https://api.intelligence.io.solutions/api/v1",
@@ -68,13 +84,42 @@ INUA_MODEL_VERSION = os.environ.get("INUA_MODEL_VERSION", MODEL_NAME)
 # --- DATA MODELS ---
 class UserProfile(BaseModel):
     is_pregnant: bool
-    trimester: Optional[int] = None
-    current_time: str
-    country_code: Optional[str] = "TR"
+    trimester: Optional[int] = Field(None, ge=1, le=3)
+    current_time: str = Field(..., regex=r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')
+    country_code: Optional[str] = Field("TR", max_length=2, min_length=2)
+    
+    @validator('country_code')
+    def validate_country_code(cls, v):
+        if v:
+            return v.upper()
+        return v
 
 class UserRequest(BaseModel):
-    user_input: str
+    user_input: str = Field(..., max_length=2000, min_length=1)
     user_profile: UserProfile
+    
+    @validator('user_input')
+    def validate_input(cls, v):
+        """Security: Basic input validation to prevent XSS and prompt injection"""
+        if not v or not v.strip():
+            raise ValueError("Input cannot be empty")
+        
+        # Remove potential XSS attempts
+        v = v.strip()
+        
+        # Check for suspicious patterns (basic protection)
+        suspicious_patterns = [
+            r'<script[^>]*>',
+            r'javascript:',
+            r'on\w+\s*=',
+            r'data:text/html',
+        ]
+        
+        for pattern in suspicious_patterns:
+            if re.search(pattern, v, re.IGNORECASE):
+                raise ValueError("Invalid input detected")
+        
+        return v
 
 class AgentResponse(BaseModel):
     message_for_user: Optional[str] = None
@@ -546,13 +591,35 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
             return {"message_for_user": "Let me help you relax.", "duration_seconds": 180}
             
     except json.JSONDecodeError:
-        log_debug(f"JSON ERROR content: {content}")
-        return {"message_for_user": content, "suggested_technique_id": None, "duration_seconds": 180}
+        log_debug(f"JSON ERROR content: {content[:200]}")  # Limit logged content
+        return {"message_for_user": "I'm having trouble processing your request. Please try again.", "suggested_technique_id": None, "duration_seconds": 180}
     except Exception as e:
         import traceback
+        # Security: Log full error details but don't expose to user
         log_debug(f"LLM ERROR: {e}")
         log_debug(f"TRACEBACK: {traceback.format_exc()}")
-        return {"message_for_user": f"Error interacting with agent: {str(e)}"}
+        # Return generic error message to user (no sensitive info)
+        return {"message_for_user": "I'm having trouble processing your request. Please try again."}
+
+# --- API AUTHENTICATION ---
+# API Key Authentication (optional - set API_AUTH_REQUIRED=true to enable)
+API_AUTH_REQUIRED = os.environ.get("API_AUTH_REQUIRED", "false").lower() == "true"
+API_AUTH_KEY = os.environ.get("API_AUTH_KEY", "").strip()
+
+security = HTTPBearer(auto_error=False)
+
+async def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    """Verify API key if authentication is enabled"""
+    if not API_AUTH_REQUIRED:
+        return True
+    
+    if not credentials:
+        raise HTTPException(status_code=401, detail="API key required")
+    
+    if credentials.credentials != API_AUTH_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+    
+    return True
 
 # --- API ENDPOINTS ---
 
@@ -562,7 +629,8 @@ def health_check():
     return {"status": "healthy", "service": "inua-breath-backend"}
 
 @app.get("/api/breathing/techniques")
-def get_techniques_endpoint(is_pregnant: bool = False, is_night: bool = False):
+@limiter.limit("30/minute")  # Rate limiting: 30 requests per minute per IP
+def get_techniques_endpoint(request: Request, is_pregnant: bool = False, is_night: bool = False):
     """
     Returns filtered techniques based on user context.
     Applies V2 context_rules (time_of_day, pregnancy_logic).
@@ -598,8 +666,9 @@ def get_techniques_endpoint(is_pregnant: bool = False, is_night: bool = False):
     return {"techniques": result}
 
 @app.post("/api/agent/chat", response_model=AgentResponse)
+@limiter.limit("10/minute")  # Rate limiting: 10 requests per minute per IP
 @track(name="agent_chat_endpoint")
-def chat_endpoint(request: UserRequest):
+def chat_endpoint(request: Request, user_request: UserRequest, _: bool = Depends(verify_api_key)):
     log_debug("DEBUG: Endpoint hit")
     
     # Generate session ID and set request metadata in Opik
@@ -614,18 +683,18 @@ def chat_endpoint(request: UserRequest):
                     "session_id": session_id,
                     "prompt_version": INUA_PROMPT_VERSION,
                     "model_version": INUA_MODEL_VERSION,
-                    "is_pregnant": request.user_profile.is_pregnant,
-                    "trimester": request.user_profile.trimester,
-                    "country_code": request.user_profile.country_code,
-                    "current_time": request.user_profile.current_time,
-                    "mode": "pregnancy" if request.user_profile.is_pregnant else "normal"
+                    "is_pregnant": user_request.user_profile.is_pregnant,
+                    "trimester": user_request.user_profile.trimester,
+                    "country_code": user_request.user_profile.country_code,
+                    "current_time": user_request.user_profile.current_time,
+                    "mode": "pregnancy" if user_request.user_profile.is_pregnant else "normal"
                 }
             ):
                 pass  # Metadata set, continue
         except Exception as e:
             log_debug(f"Opik metadata span error: {e}")
     
-    return generate_response(request)
+    return generate_response(user_request)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
