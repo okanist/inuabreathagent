@@ -9,7 +9,7 @@ from typing import Optional, List, Dict, Tuple
 from fastapi import FastAPI, HTTPException, Body, Request, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from openai import OpenAI
 import uvicorn
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -88,7 +88,8 @@ class UserProfile(BaseModel):
     current_time: str = Field(..., pattern=r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')
     country_code: Optional[str] = Field("TR", max_length=2, min_length=2)
     
-    @validator('country_code')
+    @field_validator('country_code')
+    @classmethod
     def validate_country_code(cls, v):
         if v:
             return v.upper()
@@ -98,7 +99,8 @@ class UserRequest(BaseModel):
     user_input: str = Field(..., max_length=2000, min_length=1)
     user_profile: UserProfile
     
-    @validator('user_input')
+    @field_validator('user_input')
+    @classmethod
     def validate_input(cls, v):
         """Security: Basic input validation to prevent XSS and prompt injection"""
         if not v or not v.strip():
