@@ -389,8 +389,8 @@ def generate_response(request: UserRequest):
     Generate agent response with Opik tracing.
     Returns response without thought_process (only logged to Opik metadata).
     """
-        # Security: Don't log user input directly (privacy/GDPR)
-        log_debug(f"DEBUG: Processing request (input length: {len(request.user_input)} chars)")
+    # Security: Don't log user input directly (privacy/GDPR)
+    log_debug(f"DEBUG: Processing request (input length: {len(request.user_input)} chars)")
     
     # A. Guardrail
     intent = check_crisis_intent(request.user_input)
