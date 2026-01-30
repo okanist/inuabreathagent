@@ -709,13 +709,14 @@ async def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = D
 
 @app.get("/health")
 @limiter.limit("60/minute")  # Rate limiting for health endpoint (2026 security)
-def health_check(_request: Request):  # Request needed for rate limiting (IP detection)
+def health_check(request: Request):  # Request parameter required by slowapi for rate limiting (IP detection)
     """Health check endpoint for Docker/load balancers"""
+    # Note: 'request' parameter is required by @limiter.limit() decorator but not used in function body
     return {"status": "healthy", "service": "inua-breath-backend"}
 
 @app.get("/api/breathing/techniques")
 @limiter.limit("30/minute")  # Rate limiting: 30 requests per minute per IP
-def get_techniques_endpoint(_request: Request, is_pregnant: bool = False, is_night: bool = False):  # Request needed for rate limiting (IP detection)
+def get_techniques_endpoint(request: Request, is_pregnant: bool = False, is_night: bool = False):  # Request parameter required by slowapi for rate limiting (IP detection)
     """
     Returns filtered techniques based on user context.
     Applies V2 context_rules (time_of_day, pregnancy_logic).
@@ -753,7 +754,7 @@ def get_techniques_endpoint(_request: Request, is_pregnant: bool = False, is_nig
 @app.post("/api/agent/chat", response_model=AgentResponse)
 @limiter.limit("10/minute")  # Rate limiting: 10 requests per minute per IP
 @track(name="agent_chat_endpoint")
-def chat_endpoint(_request: Request, user_request: UserRequest, _: bool = Depends(verify_api_key)):  # Request needed for rate limiting (IP detection)
+def chat_endpoint(request: Request, user_request: UserRequest, _: bool = Depends(verify_api_key)):  # Request parameter required by slowapi for rate limiting (IP detection)
     log_debug("DEBUG: Endpoint hit")
     
     # Generate session ID and set request metadata in Opik
