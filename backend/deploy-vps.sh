@@ -73,6 +73,23 @@ else
   exit 1
 fi
 
+# Ngrok: web (Vercel) backend'e ulaşabilsin diye; yoksa başlat
+NGROK_DOMAIN="loveliest-rayne-onwards.ngrok-free.dev"
+echo ""
+echo "${YELLOW}🌐 Ngrok (web backend URL)...${NC}"
+if pgrep -f "ngrok http 8001" > /dev/null; then
+  echo "${GREEN}✅ Ngrok already running${NC}"
+else
+  if command -v ngrok > /dev/null 2>&1; then
+    nohup ngrok http 8001 --domain="$NGROK_DOMAIN" > /tmp/ngrok.log 2>&1 &
+    sleep 2
+    echo "${GREEN}✅ Ngrok started → https://$NGROK_DOMAIN${NC}"
+  else
+    echo "⚠️  Ngrok not installed. Web (Vercel) needs it; run: nohup ngrok http 8001 --domain=$NGROK_DOMAIN > /tmp/ngrok.log 2>&1 &"
+  fi
+fi
+
 echo ""
 echo "${GREEN}✅ Deployment complete!${NC}"
 echo "Backend: http://localhost:8001"
+echo "Web URL: https://$NGROK_DOMAIN (set EXPO_PUBLIC_API_URL in Vercel)"
