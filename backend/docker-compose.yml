@@ -18,8 +18,8 @@ services:
       - INUA_PROMPT_VERSION=${INUA_PROMPT_VERSION:-v3}
       - INUA_MODEL_VERSION=${INUA_MODEL_VERSION:-${LLM_MODEL_NAME}}
     volumes:
-      # Mount breathing_db.json if you want to update it without rebuilding
-      - ./breathing_db.json:/app/breathing_db.json:ro
+      # Mount all_db.json (single techniques DB; update without rebuilding)
+      - ./all_db.json:/app/all_db.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health', timeout=5)"]

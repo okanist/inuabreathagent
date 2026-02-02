@@ -3,10 +3,12 @@ import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, Scr
 
 import { TopBar } from '../src/components/TopBar';
 import { BreathingOrb } from '../src/components/BreathingOrb';
+import { TextOnlySession } from '../src/components/TextOnlySession';
 import { PhaseLabel } from '../src/components/PhaseLabel';
 import { ChatInput } from '../src/components/ChatInput';
 import { useBreathing } from '../src/hooks/useBreathing';
 import { BreathingAgentService, TECHNIQUE_PATTERNS, DEFAULT_PATTERN_FALLBACK } from '../src/services/BreathingAgentService';
+import { getTechniqueById } from '../src/data/techniques';
 // import { analyzeLoad } from '../src/services/api'; // Deprecated
 import { THEME } from '../src/constants/config';
 import Animated, { FadeIn, FadeOut, FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
@@ -31,13 +33,20 @@ interface Message {
     action?: {
         type: 'start_session';
         label: string;
-        data: {
-            title: string;
-            pattern: number[];
-            duration: number;
-            instructions?: Record<string, string | undefined>;
-        };
+        data: SessionData;
     };
+}
+
+export type ScreenType = 'breathing' | 'screen2';
+
+export interface SessionData {
+    title: string;
+    pattern: number[];
+    duration: number;
+    instructions?: Record<string, string | undefined>;
+    screen_type: ScreenType;
+    /** Centered text for screen2 (no orb) */
+    screen2_text?: string | null;
 }
 
 const parsePatternString = (str?: string): number[] => {
@@ -193,19 +202,23 @@ export default function HomeScreen() {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [sessionLimit, setSessionLimit] = useState(180); // Default 3 mins
     const [sessionTitle, setSessionTitle] = useState("Paced Breathing");
+    const [sessionScreenType, setSessionScreenType] = useState<ScreenType>('breathing');
+    const [sessionScreen2Text, setSessionScreen2Text] = useState<string | null>(null);
+    /** For screen2: only duration timer runs (no breathing cycle) */
+    const [sessionTimerActive, setSessionTimerActive] = useState(false);
 
-    // Timer Logic
+    // Timer Logic (runs for both breathing session and screen2 text-only session)
     useEffect(() => {
         let timer: any;
-        if (isActive && viewMode === 'session') {
+        const timerRunning = (isActive || sessionTimerActive) && viewMode === 'session';
+        if (timerRunning) {
             timer = setInterval(() => {
                 setElapsedTime(prev => {
                     const nextTime = prev + 1;
                     if (nextTime >= sessionLimit) {
-                        // Session complete
                         clearInterval(timer);
                         stop();
-                        // Give moment to see 100% then finish
+                        setSessionTimerActive(false);
                         setTimeout(() => {
                             Alert.alert("Session Complete", "Great job taking time for yourself.", [
                                 { text: "OK", onPress: handleBackToChat }
@@ -220,14 +233,15 @@ export default function HomeScreen() {
         return () => {
             if (timer) clearInterval(timer);
         };
-    }, [isActive, viewMode, sessionLimit]);
+    }, [isActive, sessionTimerActive, viewMode, sessionLimit]);
 
     // ...
 
-    // Reset timer when entering session
+    // Reset timer and screen2 state when entering session
     useEffect(() => {
         if (viewMode === 'session') {
             setElapsedTime(0);
+            setSessionTimerActive(false);
         }
     }, [viewMode]);
 
@@ -377,43 +391,36 @@ export default function HomeScreen() {
                 return id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/(\d) (\d)/g, '$1-$2');
             };
 
-            if (techId) {
-                // V2: Get pattern from phases object returned by backend
+            // Technique: backend suggested_technique is primary (from all_db.json); fallback to local only when offline
+                const localTech = getTechniqueById(techId);
+                const tech = suggested ?? localTech;
+                const title = tech?.title ?? formatTechId(techId);
                 let pattern = DEFAULT_PATTERN_FALLBACK;
-                let title = suggested?.title || formatTechId(techId);
-
-                if (suggested?.phases) {
-                    // Backend returns phases object with inhale_sec, hold_in_sec, etc.
-                    pattern = parsePhasesObject(suggested.phases);
+                if (tech?.phases) {
+                    pattern = parsePhasesObject(tech.phases);
                 } else {
-                    // Fallback to local TECHNIQUE_PATTERNS
-                    pattern = TECHNIQUE_PATTERNS[techId] || DEFAULT_PATTERN_FALLBACK;
+                    pattern = TECHNIQUE_PATTERNS[techId] ?? DEFAULT_PATTERN_FALLBACK;
                 }
-
-                // V2: Pregnancy safety is already handled by backend
-                // Backend returns modified phases if user is pregnant
-                // But we keep client-side safety check as defense in depth
-                if (isPregnant) {
-                    // Force holds to 0 if backend didn't already modify
-                    if (pattern[1] > 0 || pattern[3] > 0) {
-                        pattern = [pattern[0], 0, pattern[2], 0];
-                    }
+                if (isPregnant && (pattern[1] > 0 || pattern[3] > 0)) {
+                    pattern = [pattern[0], 0, pattern[2], 0];
                 }
-
-                // V2: Build ui_texts based instructions for session
-                const uiTexts = suggested?.ui_texts;
+                const uiTexts = tech?.ui_texts;
                 const instructions: Record<string, string | undefined> | undefined = uiTexts ? {
                     'inhale': uiTexts.inhale,
                     'hold-in': uiTexts.hold_in,
                     'exhale': uiTexts.exhale,
                     'hold-out': uiTexts.hold_out
                 } : undefined;
+                const screen_type: ScreenType = tech?.screen_type === 'screen2' ? 'screen2' : 'breathing';
+                const screen2_text = tech?.ui_texts?.bottom_sound_text ?? null;
 
                 actionData = {
-                    title: title,
-                    pattern: pattern,
-                    duration: response.duration_seconds || suggested?.default_duration_sec || 180,
-                    instructions: instructions
+                    title,
+                    pattern,
+                    duration: response.duration_seconds ?? tech?.default_duration_sec ?? 180,
+                    instructions,
+                    screen_type,
+                    screen2_text: screen_type === 'screen2' ? (screen2_text || title) : undefined
                 };
             }
 
@@ -461,7 +468,8 @@ export default function HomeScreen() {
     };
 
     const handleBackToChat = () => {
-        stop(); // Stop breathing
+        stop();
+        setSessionTimerActive(false);
         setViewMode('chat');
         setAnalysis(null);
     };
@@ -492,18 +500,14 @@ export default function HomeScreen() {
         }
     };
 
-    const handleStartSession = (data: { title: string, pattern: number[], duration: number, instructions?: Record<string, string | undefined> }) => {
-        // 1. Set Session State
+    const handleStartSession = (data: SessionData) => {
         setSessionTitle(data.title);
         setCurrentPattern(data.pattern);
         setSessionLimit(data.duration);
         setSessionInstructions(data.instructions);
-
-        // 2. Transition View
+        setSessionScreenType(data.screen_type);
+        setSessionScreen2Text(data.screen2_text ?? null);
         setViewMode('session');
-
-        // 3. Optional: Auto-start or wait for user to press play
-        // stop(); // Ensure clean state
     };
 
     const renderBackground = () => {
@@ -617,65 +621,73 @@ export default function HomeScreen() {
         </View>
     );
 
-    const renderSessionContent = () => (
+    const renderSessionContent = () => {
+        const isScreen2 = sessionScreenType === 'screen2';
+        const sessionRunning = isScreen2 ? sessionTimerActive : isActive;
+        return (
         <View style={styles.sessionContainer}>
-            {/* Header Area */}
             <View style={styles.sessionHeader}>
                 <Text style={styles.sessionTitle}>{sessionTitle}</Text>
                 <Text style={styles.sessionTimer}>{formatTime(elapsedTime)}</Text>
             </View>
 
-            {/* Phase Instructions (Dynamic) - Moved Up */}
-            <View style={{ marginTop: 40, marginBottom: 20, alignItems: 'center', height: 40 }}>
-                <Text style={[styles.activePhaseLabel, { fontSize: 28, textAlign: 'center' }]}>
-                    {(() => {
-                        if (!isActive) return "Tap Play";
+            {isScreen2 ? (
+                /* screen2: no orb, only centered text */
+                <>
+                    <View style={{ flex: 1, width: '100%', justifyContent: 'center' }}>
+                        <TextOnlySession
+                            title={sessionTitle}
+                            instructionText={sessionScreen2Text}
+                        />
+                    </View>
+                </>
+            ) : (
+                /* breathing: phase label + orb */
+                <>
+                    <View style={{ marginTop: 40, marginBottom: 20, alignItems: 'center', height: 40 }}>
+                        <Text style={[styles.activePhaseLabel, { fontSize: 28, textAlign: 'center' }]}>
+                            {(() => {
+                                if (!isActive) return "Tap Play";
+                                const [inhale, holdIn, exhale, holdOut] = currentPattern;
+                                const pDur = phase === 'inhale' ? inhale :
+                                    phase === 'hold-in' ? holdIn :
+                                        phase === 'exhale' ? exhale :
+                                            phase === 'hold-out' ? holdOut : 0;
+                                if (pDur <= 0) return "";
+                                const text = sessionInstructions?.[phase] ||
+                                    (phase === 'idle' ? 'Ready' :
+                                        phase === 'hold-in' ? 'HOLD' :
+                                            phase === 'hold-out' ? 'HOLD' :
+                                                phase.toUpperCase());
+                                return text;
+                            })()}
+                        </Text>
+                    </View>
+                    <View style={styles.orbContainer}>
+                        <BreathingOrb phase={phase} durations={currentPattern} />
+                        {isPregnant && Platform.OS !== 'web' && <Text style={styles.safetyTag}>Safe for Pregnancy</Text>}
+                    </View>
+                </>
+            )}
 
-                        // Safety: If duration is 0, don't show text (prevents ghost holds)
-                        const [inhale, holdIn, exhale, holdOut] = currentPattern;
-                        const pDur = phase === 'inhale' ? inhale :
-                            phase === 'hold-in' ? holdIn :
-                                phase === 'exhale' ? exhale :
-                                    phase === 'hold-out' ? holdOut : 0;
-
-                        if (pDur <= 0) return "";
-
-                        const text = sessionInstructions?.[phase] ||
-                            (phase === 'idle' ? 'Ready' :
-                                phase === 'hold-in' ? 'HOLD' :
-                                    phase === 'hold-out' ? 'HOLD' :
-                                        phase.toUpperCase());
-
-                        return text;
-                    })()}
-                </Text>
-            </View>
-
-            {/* Main Orb Area */}
-            <View style={styles.orbContainer}>
-                <BreathingOrb phase={phase} durations={currentPattern} />
-                {isPregnant && Platform.OS !== 'web' && <Text style={styles.safetyTag}>Safe for Pregnancy</Text>}
-            </View>
-
-            {/* Bottom Controls */}
             <View style={styles.controlsContainer}>
                 <TouchableOpacity style={styles.roundButton} onPress={handleBackToChat}>
                     <Ionicons name="chatbubble-ellipses-outline" size={28} color="#FFF" />
                 </TouchableOpacity>
-
                 <TouchableOpacity
                     style={[styles.roundButton, styles.playPauseButton]}
-                    onPress={toggle}
+                    onPress={() => isScreen2 ? setSessionTimerActive(prev => !prev) : toggle()}
                 >
                     <Ionicons
-                        name={isActive ? "pause" : "play"}
+                        name={sessionRunning ? "pause" : "play"}
                         size={32}
                         color={THEME.colors.primary}
                     />
                 </TouchableOpacity>
             </View>
         </View>
-    );
+        );
+    };
 
     return (
         <View style={styles.container}>

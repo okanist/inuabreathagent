@@ -19,8 +19,9 @@ interface BreathingTechnique {
     title: string;
     category: string;
     default_duration_sec: number;
+    screen_type?: 'breathing' | 'screen2';
     phases: BreathingPhases;
-    ui_texts: UITexts;
+    ui_texts: UITexts & { bottom_sound_text?: string | null };
 }
 
 interface UserProfile {

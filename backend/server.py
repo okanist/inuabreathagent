@@ -171,8 +171,8 @@ class AgentResponse(BaseModel):
 
 # --- LOGIC ---
 
-# --- DATABASE LOADING (V2 Schema) ---
-DB_PATH = os.path.join(os.path.dirname(__file__), "breathing_db.json")
+# --- DATABASE LOADING (V2 Schema: all_db.json) ---
+DB_PATH = os.path.join(os.path.dirname(__file__), "all_db.json")
 
 def load_techniques_db():
     """Load V2 breathing techniques database"""
@@ -657,6 +657,7 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                     "id": tech_id,
                     "title": title,
                     "category": found_tech.get("category", ""),
+                    "screen_type": found_tech.get("screen_type", "breathing"),
                     "phases": phases,  # Already normalized (safe for pregnancy)
                     "ui_texts": found_tech.get("ui_texts", {}),
                     "default_duration_sec": duration

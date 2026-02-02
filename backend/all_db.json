@@ -1,0 +1,926 @@
+{
+    "meta_info": {
+        "version": "2.1",
+        "language": "en",
+        "description": "Breathing techniques database. 'ui_config' is for App, 'agent_config' is for LLM logic."
+    },
+    "techniques": [
+        {
+            "id": "box_breathing",
+            "title": "Box Breathing",
+            "category": "focus",
+            "default_duration_sec": 300,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Reset the mind, increase alpha waves.",
+                "instruction_clue": "Inhale 4s, Hold 4s, Exhale 4s, Hold 4s."
+            },
+            "context_rules": {
+                "time_of_day": ["day", "any"],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "BLOCK",
+                "pregnancy_alternative_id": "equal_breathing",
+                "reason": "Includes breath holding."
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 4,
+                "exhale_sec": 4,
+                "hold_out_sec": 4
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "HOLD",
+                "exhale": "EXHALE",
+                "hold_out": "HOLD",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "right_nostril_breathing",
+            "title": "Right Nostril Breathing (Surya Bhedana)",
+            "category": "focus",
+            "default_duration_sec": 180,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Stimulates left brain and sympathetic nervous system. Warming and energizing.",
+                "instruction_clue": "Inhale right nostril only, exhale right (Close left nostril)."
+            },
+            "context_rules": {
+                "time_of_day": ["day"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "note": "Safe as long as done gently."
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE (Right)",
+                "hold_in": "",
+                "exhale": "EXHALE (Right)",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "kapalabhati",
+            "title": "Kapalabhati (Fire/Skull Shining Breath)",
+            "category": "energy",
+            "default_duration_sec": 180,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Pumps oxygen quickly, instant alertness (Espresso effect).",
+                "instruction_clue": "Passive inhale, active/sharp exhale from belly."
+            },
+            "context_rules": {
+                "time_of_day": ["day"],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "FORBIDDEN",
+                "reason": "Abdominal pressure risk."
+            },
+            "phases": {
+                "inhale_sec": 1,
+                "hold_in_sec": 0,
+                "exhale_sec": 1,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "PASSIVE INHALE",
+                "hold_in": "",
+                "exhale": "SHARP EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "focus_cycle",
+            "title": "4-4-6-2 Cycle",
+            "category": "focus",
+            "default_duration_sec": 240,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Preparation before deep focus work.",
+                "instruction_clue": "Inhale nose 4s, Hold 4s, Exhale mouth 6s, Hold 2s."
+            },
+            "context_rules": {
+                "time_of_day": ["day"],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "MODIFY",
+                "reason": "Holding parts must be removed.",
+                "pregnancy_mod_phases": {
+                    "inhale_sec": 4,
+                    "hold_in_sec": 0,
+                    "exhale_sec": 6,
+                    "hold_out_sec": 0
+                }
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 4,
+                "exhale_sec": 6,
+                "hold_out_sec": 2
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "HOLD",
+                "exhale": "EXHALE",
+                "hold_out": "HOLD",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "conscious_yawning",
+            "title": "Conscious Yawning (The Yawn)",
+            "category": "energy",
+            "default_duration_sec": 60,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Cools brain, increases dopamine, moisturizes eyes.",
+                "instruction_clue": "Open mouth wide inside and yawn with sound."
+            },
+            "context_rules": {
+                "time_of_day": ["day", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 3,
+                "hold_in_sec": 0,
+                "exhale_sec": 3,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "YAWN IN",
+                "hold_in": "",
+                "exhale": "YAWN OUT",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "lions_breath",
+            "title": "Lion's Breath (Simhasana)",
+            "category": "energy",
+            "default_duration_sec": 120,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Releases throat tension, gives confidence.",
+                "instruction_clue": "Deep inhale, exhale tongue out, eyes up, 'Haaa' sound."
+            },
+            "context_rules": {
+                "time_of_day": ["day", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE (Haaa)",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "sip_breathing",
+            "title": "Sip Breathing",
+            "category": "energy",
+            "default_duration_sec": 180,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Stimulates lung capacity, wakes you up.",
+                "instruction_clue": "Inhale in 4 small sips, exhale in one go."
+            },
+            "context_rules": {
+                "time_of_day": ["day"],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "BLOCK",
+                "reason": "Rapid breathing pattern may cause hyperventilation."
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "SIP.. SIP..",
+                "hold_in": "",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "palming",
+            "title": "Palming",
+            "category": "somatic",
+            "default_duration_sec": 120,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Rests optic nerve, good for screen fatigue.",
+                "instruction_clue": "Warm palms, place over closed eyes."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Cover eyes with warm palms"
+            }
+        },
+        {
+            "id": "ear_lobe_pull",
+            "title": "Ear Lobe Pull",
+            "category": "somatic",
+            "default_duration_sec": 60,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Stimulates blood flow to brain, gathers attention.",
+                "instruction_clue": "Pull ear lobes down/out and massage."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Massage ear lobes"
+            }
+        },
+        {
+            "id": "five_finger_breathing",
+            "title": "5 Finger Breathing (Hand Tracing)",
+            "category": "somatic",
+            "default_duration_sec": 300,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Touch + Visual focus + Breath sync.",
+                "instruction_clue": "Trace around fingers while breathing."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE (Trace up)",
+                "hold_in": "",
+                "exhale": "EXHALE (Trace down)",
+                "hold_out": "",
+                "bottom_sound_text": "Trace your fingers"
+            }
+        },
+        {
+            "id": "thymus_thump",
+            "title": "Thymus Thump",
+            "category": "somatic",
+            "default_duration_sec": 60,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Boosts energy levels, stimulates immunity.",
+                "instruction_clue": "Rhythmic tapping on center of chest."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": "Tap chest rhythmically"
+            }
+        },
+        {
+            "id": "jaw_release",
+            "title": "Jaw Release",
+            "category": "somatic",
+            "default_duration_sec": 120,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Sends 'danger over' signal to brain.",
+                "instruction_clue": "Circular massage on jaw joint."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": "Massage jaw joint"
+            }
+        },
+        {
+            "id": "cold_splash",
+            "title": "Cold Splash",
+            "category": "somatic",
+            "default_duration_sec": 30,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Triggers Mammalian Dive Reflex, regulates heart rate.",
+                "instruction_clue": "Splash cold water on face or cold towel on neck."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Use cold water/towel"
+            }
+        },
+        {
+            "id": "physiological_sigh",
+            "title": "Physiological Sigh",
+            "category": "panic",
+            "default_duration_sec": 300,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Offloads CO2, effective in panic.",
+                "instruction_clue": "Two inhales through nose (second short), long exhale through mouth."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 3,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "DOUBLE INHALE",
+                "hold_in": "",
+                "exhale": "LONG SIGH",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "grounding_5_4_3_2_1",
+            "title": "5-4-3-2-1 Grounding",
+            "category": "panic",
+            "default_duration_sec": 300,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Brings mind to 'now'.",
+                "instruction_clue": "5 See, 4 Feel, 3 Hear, 2 Smell, 1 Taste."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Focus on senses: 5-4-3-2-1"
+            }
+        },
+        {
+            "id": "butterfly_hug",
+            "title": "Butterfly Hug",
+            "category": "panic",
+            "default_duration_sec": 180,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Balances brain with bilateral stimulation.",
+                "instruction_clue": "Cross hands and tap shoulders."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Tap shoulders alternately"
+            }
+        },
+        {
+            "id": "voo_chanting",
+            "title": "Voo Chanting",
+            "category": "panic",
+            "default_duration_sec": 180,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Stimulates Vagus nerve.",
+                "instruction_clue": "Make deep vibrating 'Voooo' sound."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "note": "Commonly used in labor."
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 8,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE (Voooo...)",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "pmr_clench_release",
+            "title": "Clench & Release (PMR)",
+            "category": "panic",
+            "default_duration_sec": 300,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Release physical tension.",
+                "instruction_clue": "Squeeze hands (5s), release suddenly."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "MODIFY",
+                "modification": "Do not squeeze belly, only hands/feet."
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Squeeze and release tension"
+            }
+        },
+        {
+            "id": "4_7_8_sleep",
+            "title": "4-7-8 Technique",
+            "category": "sleep",
+            "default_duration_sec": 240,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Transition to sleep.",
+                "instruction_clue": "Inhale nose 4s, Hold 7s, Exhale mouth 8s."
+            },
+            "context_rules": {
+                "time_of_day": ["night"],
+                "pregnancy_safe": false,
+                "pregnancy_logic": "MODIFY",
+                "modification": "4 in, slow 8 out without holding.",
+                "pregnancy_mod_phases": {
+                    "inhale_sec": 4,
+                    "hold_in_sec": 0,
+                    "exhale_sec": 8,
+                    "hold_out_sec": 0
+                }
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 7,
+                "exhale_sec": 8,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "HOLD",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "left_nostril_breathing",
+            "title": "Left Nostril Breathing (Chandra Bhedana)",
+            "category": "sleep",
+            "default_duration_sec": 300,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Cools body, calms (Moon energy).",
+                "instruction_clue": "Inhale/exhale left nostril only."
+            },
+            "context_rules": {
+                "time_of_day": ["night", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE (Left)",
+                "hold_in": "",
+                "exhale": "EXHALE (Left)",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "bee_breath",
+            "title": "Humming Bee Breath (Bhramari)",
+            "category": "sleep",
+            "default_duration_sec": 300,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Disconnection from outside world.",
+                "instruction_clue": "Close ears and make 'Mmm' sound."
+            },
+            "context_rules": {
+                "time_of_day": ["night", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 8,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE (Humming)",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        },
+        {
+            "id": "body_scan",
+            "title": "Body Scan",
+            "category": "sleep",
+            "default_duration_sec": 600,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Deep relaxation (Yoga Nidra).",
+                "instruction_clue": "Mental scanning of whole body."
+            },
+            "context_rules": {
+                "time_of_day": ["night", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Scan body from head to toe"
+            }
+        },
+        {
+            "id": "extended_exhalation",
+            "title": "Extended Exhalation",
+            "category": "panic",
+            "default_duration_sec": 180,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Activates the parasympathetic nervous system (the 'brake') to calm the body instantly.",
+                "instruction_clue": "Inhale through the nose for 3s, exhale slowly through the mouth for 6s."
+            },
+            "context_rules": {
+                "time_of_day": ["day", "night", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "pregnancy_alternative_id": null
+            },
+            "phases": {
+                "inhale_sec": 3,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE SLOWLY",
+                "hold_out": "",
+                "bottom_sound_text": "Gentle sigh"
+            }
+        },
+        {
+            "id": "feet_on_floor",
+            "title": "Feet on Floor",
+            "category": "panic",
+            "default_duration_sec": 60,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Uses sensory input and gravity to ground the mind during dissociation or panic.",
+                "instruction_clue": "Press your feet firmly into the ground. Feel the texture and resistance of the floor."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "pregnancy_alternative_id": null
+            },
+            "phases": {
+                "inhale_sec": 0,
+                "hold_in_sec": 0,
+                "exhale_sec": 0,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Connect with gravity"
+            }
+        },
+        {
+            "id": "fingertip_tapping",
+            "title": "Fingertip Tapping",
+            "category": "focus",
+            "default_duration_sec": 60,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Stimulates fine motor nerves to alert the brain and improve coordination.",
+                "instruction_clue": "Quickly tap the tips of all your fingers against each other repeatedly."
+            },
+            "context_rules": {
+                "time_of_day": ["day", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "pregnancy_alternative_id": null
+            },
+            "phases": {
+                "inhale_sec": 0,
+                "hold_in_sec": 0,
+                "exhale_sec": 0,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Rhythmic tapping sound"
+            }
+        },
+        {
+            "id": "ocean_breath",
+            "title": "Ocean Breath (Ujjayi)",
+            "category": "sleep",
+            "default_duration_sec": 300,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Quietens the mind and prepares the body for deep rest by slightly constricting the throat.",
+                "instruction_clue": "Inhale nose 4s, Exhale nose 4s with a soft whisper sound from your throat."
+            },
+            "context_rules": {
+                "time_of_day": ["night", "any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "pregnancy_alternative_id": null
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "OCEAN EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": "Soft ocean whisper"
+            }
+        },
+        {
+            "id": "hand_heart_belly",
+            "title": "Hand on Heart & Belly",
+            "category": "sleep",
+            "default_duration_sec": 120,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Fosters a sense of safety and self-compassion by connecting with your natural rhythm.",
+                "instruction_clue": "Place one hand on your heart, one on your belly. Breathe naturally."
+            },
+            "context_rules": {
+                "time_of_day": ["night"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "pregnancy_alternative_id": null
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "FEEL THE RISE",
+                "hold_in": "",
+                "exhale": "FEEL THE FALL",
+                "hold_out": "",
+                "bottom_sound_text": "Natural flow"
+            }
+        },
+        {
+            "id": "gratitude_flow",
+            "title": "Gratitude Flow",
+            "category": "sleep",
+            "default_duration_sec": 180,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Shifts the brain from 'threat-detection' to 'safety' mode before sleep.",
+                "instruction_clue": "Inhale naturally, and as you exhale, think of one thing you are grateful for."
+            },
+            "context_rules": {
+                "time_of_day": ["night"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "pregnancy_alternative_id": null
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 6,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE PEACE",
+                "hold_in": "",
+                "exhale": "EXHALE GRATITUDE",
+                "hold_out": "",
+                "bottom_sound_text": "Reflect on one good thing"
+            }
+        },
+        {
+            "id": "staircase_visualization",
+            "title": "Staircase Visualization",
+            "category": "sleep",
+            "default_duration_sec": 300,
+            "screen_type": "screen2",
+            "agent_config": {
+                "purpose": "Guided mental imagery to induce hypnotic-like relaxation for deep sleep.",
+                "instruction_clue": "Imagine a safe staircase with 10 steps. Descend slowly with each count."
+            },
+            "context_rules": {
+                "time_of_day": ["night"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE",
+                "pregnancy_alternative_id": null
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "bottom_sound_text": "Counting down: 10... 9... 8..."
+            }
+        },
+        {
+            "id": "equal_breathing",
+            "title": "Equal Breathing",
+            "category": "balance",
+            "default_duration_sec": 120,
+            "screen_type": "breathing",
+            "agent_config": {
+                "purpose": "Brings immediate balance and steadiness to the emotions.",
+                "instruction_clue": "Inhale nose 4s, Exhale nose 4s smoothly."
+            },
+            "context_rules": {
+                "time_of_day": ["any"],
+                "pregnancy_safe": true,
+                "pregnancy_logic": "SAFE"
+            },
+            "phases": {
+                "inhale_sec": 4,
+                "hold_in_sec": 0,
+                "exhale_sec": 4,
+                "hold_out_sec": 0
+            },
+            "ui_texts": {
+                "inhale": "INHALE",
+                "hold_in": "",
+                "exhale": "EXHALE",
+                "hold_out": "",
+                "bottom_sound_text": null
+            }
+        }
+    ],
+    "pregnancy_scenarios": [
+        {
+            "scenario_id": "dyspnea",
+            "symptoms": [
+                "Shortness of breath",
+                "Feeling of not catching up",
+                "Chest tightness"
+            ],
+            "mechanism_cause": "Uterus pressing on diaphragm.",
+            "recommended_techniques": [
+                "equal_breathing"
+            ],
+            "forbidden_actions": [
+                "Forced belly breathing"
+            ]
+        },
+        {
+            "scenario_id": "tokophobia",
+            "symptoms": [
+                "Fear of birth",
+                "Tension",
+                "Anxiety"
+            ],
+            "mechanism_cause": "Cortisol increase.",
+            "recommended_techniques": [
+                "bee_breath",
+                "butterfly_hug"
+            ],
+            "agent_script_clue": "Remind her she is making space for baby and is safe."
+        },
+        {
+            "scenario_id": "morning_sickness",
+            "symptoms": [
+                "Nausea",
+                "Feeling unwell"
+            ],
+            "mechanism_cause": "Hormonal changes and smell sensitivity.",
+            "recommended_techniques": [
+                "cold_splash"
+            ],
+            "forbidden_actions": [
+                "Strong smelling environments",
+                "Rapid movements"
+            ]
+        },
+        {
+            "scenario_id": "braxton_hicks",
+            "symptoms": [
+                "False labor",
+                "Back pain",
+                "Groin pain"
+            ],
+            "mechanism_cause": "Uterine contractions.",
+            "recommended_techniques": [
+                "voo_chanting"
+            ],
+            "agent_script_clue": "Focus on relaxing pelvic floor."
+        }
+    ]
+}

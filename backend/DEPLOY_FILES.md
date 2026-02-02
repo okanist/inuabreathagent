@@ -6,7 +6,7 @@
 backend/
 ├── server.py                    # Ana uygulama
 ├── requirements.txt             # Python bağımlılıkları
-├── breathing_db.json            # Nefes teknikleri veritabanı
+├── all_db.json                   # Nefes teknikleri veritabanı (all_db)
 ├── Dockerfile                   # Docker build dosyası
 ├── docker-compose.yml           # Docker Compose yapılandırması (opsiyonel ama önerilir)
 ├── .dockerignore               # Docker ignore dosyası
@@ -42,7 +42,7 @@ Sunucuda çalıştır:
 
 ```bash
 # Sadece gerekli dosyaları kopyala
-scp -r backend/server.py backend/requirements.txt backend/breathing_db.json \
+scp -r backend/server.py backend/requirements.txt backend/all_db.json \
      backend/Dockerfile backend/docker-compose.yml backend/.dockerignore \
      backend/.env.example user@server:/path/to/backend/
 
@@ -73,7 +73,7 @@ Eğer sadece Docker ile çalıştıracaksan, minimum şunlar yeterli:
 backend/
 ├── server.py
 ├── requirements.txt
-├── breathing_db.json
+├── all_db.json
 ├── Dockerfile
 └── .env (sunucuda oluşturulacak)
 ```

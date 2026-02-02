@@ -112,13 +112,37 @@ docker-compose build --no-cache
 docker-compose up -d
 ```
 
-### breathing_db.json Değişikliği
+### all_db.json Upgrade (DB güncelleme)
+
+Backend DB'yi sunucuda güncellemek için:
+
+**1. Yeni dosyayı sunucuya al**
+
+- **Git kullanıyorsan** (all_db.json repo’da):
+  ```bash
+  cd /path/to/backend   # backend klasörüne git
+  git pull
+  ```
+
+- **Manuel kopyalıyorsan** (lokaldeki güncel `all_db.json`):
+  ```bash
+  scp backend/all_db.json user@SUNUCU_IP:/path/to/backend/all_db.json
+  ```
+
+**2. Container’ı yeniden başlat**
+
+DB dosyası uygulama açılışında okunuyor; değişikliklerin geçerli olması için restart gerekir.
 
 ```bash
-git pull
-# Volume mount kullanıyorsan, dosya otomatik güncellenir
-# Değilse container'ı restart et
+cd /path/to/backend
 docker-compose restart
+```
+
+Volume mount kullanıyorsan (`./all_db.json:/app/all_db.json`) container yeni dosyayı bu restart ile okur. Volume yoksa image’ı yeniden build edip up etmen gerekir:
+
+```bash
+docker-compose down
+docker-compose up -d --build
 ```
 
 ## 🐛 Troubleshooting
