@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, ScrollView, TouchableOpacity, Alert, Keyboard, AppState, Image } from 'react-native';
+import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, ScrollView, TouchableOpacity, Alert, Keyboard, AppState, Image, Modal } from 'react-native';
 
 import { TopBar } from '../src/components/TopBar';
 import { BreathingOrb } from '../src/components/BreathingOrb';
@@ -47,6 +47,8 @@ export interface SessionData {
     screen_type: ScreenType;
     /** Centered text for screen2 (no orb) */
     screen2_text?: string | null;
+    /** For feedback tracking (Opik) */
+    technique_id?: string | null;
 }
 
 const parsePatternString = (str?: string): number[] => {
@@ -206,6 +208,9 @@ export default function HomeScreen() {
     const [sessionScreen2Text, setSessionScreen2Text] = useState<string | null>(null);
     /** For screen2: only duration timer runs (no breathing cycle) */
     const [sessionTimerActive, setSessionTimerActive] = useState(false);
+    /** Show "Did this help?" feedback modal when session completes */
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [sessionTechniqueId, setSessionTechniqueId] = useState<string | null>(null);
 
     // Timer Logic (runs for both breathing session and screen2 text-only session)
     useEffect(() => {
@@ -219,11 +224,7 @@ export default function HomeScreen() {
                         clearInterval(timer);
                         stop();
                         setSessionTimerActive(false);
-                        setTimeout(() => {
-                            Alert.alert("Session Complete", "Great job taking time for yourself.", [
-                                { text: "OK", onPress: handleBackToChat }
-                            ]);
-                        }, 500);
+                        setTimeout(() => setShowFeedbackModal(true), 500);
                         return nextTime;
                     }
                     return nextTime;
@@ -421,7 +422,8 @@ export default function HomeScreen() {
                     duration: response.duration_seconds ?? tech?.default_duration_sec ?? 180,
                     instructions,
                     screen_type,
-                    screen2_text: screen_type === 'screen2' ? (screen2_text || title) : undefined
+                    screen2_text: screen_type === 'screen2' ? (screen2_text || title) : undefined,
+                    technique_id: techId ?? null
                 };
             }
 
@@ -508,7 +510,14 @@ export default function HomeScreen() {
         setSessionInstructions(data.instructions);
         setSessionScreenType(data.screen_type);
         setSessionScreen2Text(data.screen2_text ?? null);
+        setSessionTechniqueId(data.technique_id ?? null);
         setViewMode('session');
+    };
+
+    const submitFeedback = async (feedback: 'positive' | 'negative') => {
+        await BreathingAgentService.submitExerciseFeedback(sessionTechniqueId || 'unknown', sessionTitle, feedback);
+        setShowFeedbackModal(false);
+        handleBackToChat();
     };
 
     const renderBackground = () => {
@@ -758,6 +767,50 @@ export default function HomeScreen() {
                     </Animated.View>
                 )
             )}
+
+            {/* Egzersiz sonrası feedback modal — Opik'e kaydedilir */}
+            <Modal
+                visible={showFeedbackModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setShowFeedbackModal(false);
+                    handleBackToChat();
+                }}
+            >
+                <View style={styles.feedbackOverlay}>
+                    <View style={styles.feedbackCard}>
+                        <Text style={styles.feedbackTitle}>Egzersiz işe yaradı mı?</Text>
+                        <View style={styles.feedbackButtons}>
+                            <TouchableOpacity
+                                style={[styles.feedbackButton, styles.feedbackLike]}
+                                onPress={() => submitFeedback('positive')}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="thumbs-up" size={32} color="#FFF" />
+                                <Text style={styles.feedbackButtonLabel}>Evet</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.feedbackButton, styles.feedbackDislike]}
+                                onPress={() => submitFeedback('negative')}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="thumbs-down" size={32} color="#FFF" />
+                                <Text style={styles.feedbackButtonLabel}>Hayır</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.feedbackSkip}
+                            onPress={() => {
+                                setShowFeedbackModal(false);
+                                handleBackToChat();
+                            }}
+                        >
+                            <Text style={styles.feedbackSkipText}>Sonra</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -950,6 +1003,64 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     backButtonText: {
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 14,
+    },
+    // Feedback modal (egzersiz sonrası — Opik takibi)
+    feedbackOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    feedbackCard: {
+        backgroundColor: 'rgba(26, 26, 46, 0.98)',
+        borderRadius: THEME.borderRadius.l,
+        padding: THEME.spacing.xl,
+        width: '100%',
+        maxWidth: 320,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+    },
+    feedbackTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#FFF',
+        marginBottom: 24,
+        textAlign: 'center',
+    },
+    feedbackButtons: {
+        flexDirection: 'row',
+        gap: 20,
+        marginBottom: 16,
+    },
+    feedbackButton: {
+        flex: 1,
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        borderRadius: THEME.borderRadius.m,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    feedbackLike: {
+        backgroundColor: THEME.colors.success,
+    },
+    feedbackDislike: {
+        backgroundColor: THEME.colors.error,
+    },
+    feedbackButtonLabel: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    feedbackSkip: {
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+    },
+    feedbackSkipText: {
         color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
     },

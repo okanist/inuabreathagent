@@ -167,6 +167,12 @@ class AgentResponse(BaseModel):
     emergency_override: Optional[Dict] = None
     # thought_process removed - only logged to Opik metadata
 
+
+class FeedbackRequest(BaseModel):
+    technique_id: str = Field(..., max_length=100)
+    technique_title: Optional[str] = Field(None, max_length=200)
+    feedback: str = Field(..., pattern=r"^(positive|negative)$")
+
 # ... (rest of code)
 
 # --- LOGIC ---
@@ -751,6 +757,30 @@ def get_techniques_endpoint(request: Request, is_pregnant: bool = False, is_nigh
         result.append(tech_copy)
     
     return {"techniques": result}
+
+
+@app.post("/api/feedback")
+@limiter.limit("30/minute")
+def feedback_endpoint(request: Request, body: FeedbackRequest):
+    """Log exercise feedback (helpful / not helpful) for Opik tracking."""
+    try:
+        if OPIK_AVAILABLE and opik:
+            with opik.start_as_current_span(
+                name="exercise_feedback",
+                type="feedback",
+                metadata={
+                    "technique_id": body.technique_id,
+                    "technique_title": body.technique_title or "",
+                    "feedback": body.feedback,
+                    "helpful": body.feedback == "positive",
+                }
+            ):
+                pass
+        log_debug(f"Feedback: technique_id={body.technique_id} feedback={body.feedback}")
+    except Exception as e:
+        log_debug(f"Opik feedback log error: {e}")
+    return {"ok": True}
+
 
 @app.post("/api/agent/chat", response_model=AgentResponse)
 @limiter.limit("10/minute")  # Rate limiting: 10 requests per minute per IP

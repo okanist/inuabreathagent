@@ -244,21 +244,33 @@ export class BreathingAgentService {
         };
     }
 
+    /** Backend base URL (same logic as callRemoteAgent). */
+    static getBaseUrl(): string {
+        const defaultDevUrl = Platform.OS === 'android' ? "http://10.0.2.2:8001" : "http://localhost:8001";
+        let base = process.env.EXPO_PUBLIC_API_URL || defaultDevUrl;
+        if (Platform.OS === 'android' && (base.includes('localhost') || base.includes('127.0.0.1'))) base = "http://10.0.2.2:8001";
+        return base;
+    }
+
+    /** Send exercise feedback to backend for Opik tracking. */
+    static async submitExerciseFeedback(techniqueId: string, techniqueTitle: string, feedback: 'positive' | 'negative'): Promise<void> {
+        const base = this.getBaseUrl();
+        try {
+            await fetch(`${base}/api/feedback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ technique_id: techniqueId, technique_title: techniqueTitle, feedback })
+            });
+        } catch (_) { /* ignore */ }
+    }
+
     /**
      * INTEGRATION: Call the Python Backend (Opik Enabled)
      * Use this method when running the backend server for full Opik tracing.
      */
     static async callRemoteAgent(input: string, userProfile: UserProfile): Promise<AgentResponse> {
         try {
-            // Priority: EXPO_PUBLIC_API_URL (Vercel/Prod/Physical device) -> Dev fallback
-            // On Android, "localhost" points to the device; use 10.0.2.2 (emulator) or set EXPO_PUBLIC_API_URL to your PC IP
-            const defaultDevUrl = Platform.OS === 'android'
-                ? "http://10.0.2.2:8001"
-                : "http://localhost:8001";
-            let BASE_URL = process.env.EXPO_PUBLIC_API_URL || defaultDevUrl;
-            if (Platform.OS === 'android' && (BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1'))) {
-                BASE_URL = "http://10.0.2.2:8001";
-            }
+            const BASE_URL = this.getBaseUrl();
             const API_URL = `${BASE_URL}/api/agent/chat`;
             if (__DEV__) {
                 console.log("[Agent] Request URL:", API_URL);
