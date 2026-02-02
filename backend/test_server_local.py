@@ -4,7 +4,7 @@ import json
 url = "http://localhost:8000/api/agent/chat"
 headers = {"Content-Type": "application/json"}
 payload = {
-    "user_input": "Yarın sınavım var, çok gerginim.",
+    "user_input": "I have an exam tomorrow, I'm very nervous.",
     "user_profile": {
         "is_pregnant": False,
         "current_time": "20:00",

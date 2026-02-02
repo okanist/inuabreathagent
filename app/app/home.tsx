@@ -768,7 +768,7 @@ export default function HomeScreen() {
                 )
             )}
 
-            {/* Egzersiz sonrası feedback modal — Opik'e kaydedilir */}
+            {/* Post-exercise feedback modal — recorded in Opik */}
             <Modal
                 visible={showFeedbackModal}
                 transparent
@@ -780,7 +780,7 @@ export default function HomeScreen() {
             >
                 <View style={styles.feedbackOverlay}>
                     <View style={styles.feedbackCard}>
-                        <Text style={styles.feedbackTitle}>Egzersiz işe yaradı mı?</Text>
+                        <Text style={styles.feedbackTitle}>Did this exercise help?</Text>
                         <View style={styles.feedbackButtons}>
                             <TouchableOpacity
                                 style={[styles.feedbackButton, styles.feedbackLike]}
@@ -788,7 +788,7 @@ export default function HomeScreen() {
                                 activeOpacity={0.8}
                             >
                                 <Ionicons name="thumbs-up" size={32} color="#FFF" />
-                                <Text style={styles.feedbackButtonLabel}>Evet</Text>
+                                <Text style={styles.feedbackButtonLabel}>Yes</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.feedbackButton, styles.feedbackDislike]}
@@ -796,7 +796,7 @@ export default function HomeScreen() {
                                 activeOpacity={0.8}
                             >
                                 <Ionicons name="thumbs-down" size={32} color="#FFF" />
-                                <Text style={styles.feedbackButtonLabel}>Hayır</Text>
+                                <Text style={styles.feedbackButtonLabel}>No</Text>
                             </TouchableOpacity>
                         </View>
                         <TouchableOpacity
@@ -806,7 +806,7 @@ export default function HomeScreen() {
                                 handleBackToChat();
                             }}
                         >
-                            <Text style={styles.feedbackSkipText}>Sonra</Text>
+                            <Text style={styles.feedbackSkipText}>Later</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
     },
-    // Feedback modal (egzersiz sonrası — Opik takibi)
+    // Feedback modal (post-exercise — Opik tracking)
     feedbackOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.6)',
