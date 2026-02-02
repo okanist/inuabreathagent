@@ -391,7 +391,8 @@ export default function HomeScreen() {
                 return id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/(\d) (\d)/g, '$1-$2');
             };
 
-            // Technique: backend suggested_technique is primary (from all_db.json); fallback to local only when offline
+            if (techId) {
+                // Technique: backend suggested_technique is primary (from all_db.json); fallback to local only when offline
                 const localTech = getTechniqueById(techId);
                 const tech = suggested ?? localTech;
                 const title = tech?.title ?? formatTechId(techId);
