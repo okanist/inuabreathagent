@@ -134,7 +134,7 @@
         },
         {
             "id": "conscious_yawning",
-            "title": "Conscious Yawning (The Yawn)",
+            "title": "Conscious Yawning",
             "category": "energy",
             "default_duration_sec": 60,
             "screen_type": "breathing",

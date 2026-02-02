@@ -627,11 +627,8 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
             phases = found_tech.get("phases", {})
             duration = found_tech.get("default_duration_sec", 180)
             
-            # screen2: chat instructions = instruction_clue; breathing: from phases
-            if found_tech.get("screen_type") == "screen2":
-                instruction_text = (found_tech.get("agent_config") or {}).get("instruction_clue") or build_instruction_text(found_tech)
-            else:
-                instruction_text = build_instruction_text(found_tech)
+            # Chat instructions: instruction_clue (tüm egzersizler) yoksa phases'ten üret
+            instruction_text = (found_tech.get("agent_config") or {}).get("instruction_clue") or build_instruction_text(found_tech)
             
             # Message without instruction (LLM only provides empathy and reason)
             message = f"{empathy} {reason}"
