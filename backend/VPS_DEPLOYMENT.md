@@ -1,6 +1,16 @@
 # VPS Deployment Rehberi
 
-## 🚀 Hızlı Deployment
+## 🤖 Otomatik Deploy (GitHub Actions)
+
+`main` branch'e push yaptığında workflow VPS'e SSH ile bağlanıp `git pull`, `backend/*` kopyalama ve `docker compose build && up` yapar.
+
+- **Deploy tetiklenmediyse:** GitHub repo → **Actions** sekmesine bak; workflow çalıştı mı, hata var mı?
+- **GitHub Secrets** tanımlı olmalı: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
+- **VPS klasörü:** `~/inua-breath-backend`
+  - **Sadece backend dosyaları varsa** (server.py, docker-compose.yml, .env; `.git` yok): Her deploy’da workflow tam repo’yu clone edip `backend/` içeriğini bu klasöre kopyalar; `all_db.json` dahil tüm dosyalar güncellenir.
+  - **Tam repo varsa** (`.git` ve `backend/` alt klasörü var): `git pull` sonrası `backend/` içeriği üst klasöre kopyalanır.
+
+## 🚀 Hızlı Deployment (Manuel)
 
 ### Server'da Değişiklik Yaptıktan Sonra
 

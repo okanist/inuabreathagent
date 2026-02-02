@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 // V2 Schema Types - Data now comes from Backend
 interface BreathingPhases {
     inhale_sec: number;
@@ -248,14 +250,18 @@ export class BreathingAgentService {
      */
     static async callRemoteAgent(input: string, userProfile: UserProfile): Promise<AgentResponse> {
         try {
-            // Priority: Environment Variable (Vercel/Prod) -> Localhost (Dev)
-            // Note for Physical Android Devices: Change to your local IP (e.g. 192.168.1.11)
-            // For Web: Use EXPO_PUBLIC_API_URL environment variable
-            const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8001";
+            // Priority: EXPO_PUBLIC_API_URL (Vercel/Prod/Physical device) -> Dev fallback
+            // On Android, "localhost" points to the device; use 10.0.2.2 (emulator) or set EXPO_PUBLIC_API_URL to your PC IP
+            const defaultDevUrl = Platform.OS === 'android'
+                ? "http://10.0.2.2:8001"
+                : "http://localhost:8001";
+            let BASE_URL = process.env.EXPO_PUBLIC_API_URL || defaultDevUrl;
+            if (Platform.OS === 'android' && (BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1'))) {
+                BASE_URL = "http://10.0.2.2:8001";
+            }
             const API_URL = `${BASE_URL}/api/agent/chat`;
-
-            if (!process.env.EXPO_PUBLIC_API_URL) {
-                console.debug("Using Dev API Fallback:", API_URL);
+            if (__DEV__) {
+                console.log("[Agent] Request URL:", API_URL);
             }
             const response = await fetch(API_URL, {
                 method: 'POST',
@@ -286,8 +292,7 @@ export class BreathingAgentService {
             return data as AgentResponse;
 
         } catch (error) {
-            console.error("Failed to connect to Opik Agent Backend. Falling back to local offline mode.", error);
-            // Fallback to local logic if backend is down
+            console.error("Backend connection failed. Using offline mode. Ensure backend runs on port 8001; on physical Android use EXPO_PUBLIC_API_URL=http://YOUR_PC_IP:8001", error);
             return this.processUserInput(input, userProfile);
         }
     }

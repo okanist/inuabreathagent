@@ -3,8 +3,7 @@ name: Deploy Inua Backend to VPS
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'backend/**'  # Sadece backend klasörü değiştiğinde deploy et
+    # Her push'ta VPS backend güncellenir (repo pull edilir, backend/* kopyalanır, docker rebuild)
 
 jobs:
   deploy:
@@ -30,40 +29,39 @@ jobs:
               echo "✅ .env backed up"
             fi
             
-            # Git repository yoksa clone et, varsa pull yap
+            # Sunucuda sadece backend klasörü varsa (.git yok) her seferinde taze clone + kopyala
             if [ ! -d .git ]; then
-              echo "Git repository not found. Setting up..."
+              echo "No .git: full clone and copy backend/* to current dir..."
               cd ~
-              # Repo'yu geçici olarak clone et
-              git clone https://github.com/okanist/inuabreathagent.git inua-breath-backend-temp
-              # Backend dosyalarını mevcut klasöre kopyala
-              if [ -d inua-breath-backend ]; then
-                cp -r inua-breath-backend-temp/backend/* inua-breath-backend/
-              else
-                mkdir -p inua-breath-backend
-                cp -r inua-breath-backend-temp/backend/* inua-breath-backend/
-              fi
-              # .env dosyasını restore et
+              rm -rf inua-breath-backend-temp
+              git clone --depth 1 https://github.com/okanist/inuabreathagent.git inua-breath-backend-temp
+              mkdir -p inua-breath-backend
+              cp -r inua-breath-backend-temp/backend/. inua-breath-backend/
               if [ -f /tmp/inua-backend-env-backup ]; then
                 cp /tmp/inua-backend-env-backup inua-breath-backend/.env
                 echo "✅ .env restored"
               fi
-              # Geçici klasörü temizle
               rm -rf inua-breath-backend-temp
               cd ~/inua-breath-backend
             else
               echo "Pulling latest changes..."
               git pull origin main
-              # Backend klasöründeki değişiklikleri mevcut klasöre kopyala
               if [ -d backend ]; then
-                cp -r backend/* . 2>/dev/null || true
+                cp -r backend/. . 2>/dev/null || true
               fi
-              # .env dosyasını restore et (eğer üzerine yazıldıysa)
               if [ -f /tmp/inua-backend-env-backup ] && [ ! -f .env ]; then
                 cp /tmp/inua-backend-env-backup .env
                 echo "✅ .env restored"
               fi
             fi
+            
+            # all_db.json ve server.py varlığını kontrol et
+            if [ ! -f all_db.json ]; then
+              echo "❌ all_db.json not found after copy!"
+              ls -la
+              exit 1
+            fi
+            echo "✅ all_db.json present ($(wc -l < all_db.json) lines)"
             
             # Docker container'ları durdur
             echo "Stopping containers..."
