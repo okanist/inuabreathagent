@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, ScrollView, TouchableOpacity, Alert, Keyboard, AppState, Image, Modal } from 'react-native';
+import { View, StyleSheet, Text, KeyboardAvoidingView, Platform, Dimensions, ScrollView, TouchableOpacity, Alert, Keyboard, AppState, Image, Modal, Linking } from 'react-native';
 
 import { TopBar } from '../src/components/TopBar';
 import { BreathingOrb } from '../src/components/BreathingOrb';
@@ -211,6 +211,8 @@ export default function HomeScreen() {
     /** Show "Did this help?" feedback modal when session completes */
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [sessionTechniqueId, setSessionTechniqueId] = useState<string | null>(null);
+    const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+    const [emergencyOverride, setEmergencyOverride] = useState<any>(null);
 
     // Timer Logic (runs for both breathing session and screen2 text-only session)
     useEffect(() => {
@@ -319,6 +321,34 @@ export default function HomeScreen() {
         }
     }, [messages, viewMode, isKeyboardVisible]);
 
+    const normalizeEmergencyOverride = (override: any, profile: { country_code?: string }) => {
+        if (!override) return override;
+        const fallbackNumber = BreathingAgentService.getEmergencyNumber(profile.country_code);
+        const fallbackButtons = [
+            {
+                label: `Call Emergency (${fallbackNumber})`,
+                action: 'call_phone',
+                number: fallbackNumber
+            }
+        ];
+        const buttons = override.buttons && override.buttons.length > 0 ? override.buttons : fallbackButtons;
+        return { ...override, buttons };
+    };
+
+    const handleEmergencyAction = (btn: any) => {
+        if (btn?.action === 'call_phone' && btn.number) {
+            const url = `tel:${btn.number}`;
+            if (Platform.OS === 'web') {
+                if (typeof window !== 'undefined') window.open(url);
+            } else {
+                Linking.openURL(url).catch((err) => console.log("Call failed", err));
+            }
+        }
+        if (btn?.action === 'share_location_whatsapp') {
+            console.log("Share Location tapped");
+        }
+    };
+
     const handleSend = async (text: string) => {
         // Add user message immediately
         const userMsg: Message = {
@@ -365,20 +395,24 @@ export default function HomeScreen() {
                 setLoading(false);
                 setViewMode('chat'); // Stay in chat to show alert or handle UI
 
-                const override = response.emergency_override;
-                Alert.alert(
-                    "Safety Alert",
-                    override.display_message,
-                    override.buttons.map(btn => ({
-                        text: btn.label,
-                        onPress: () => {
-                            if (btn.action === 'call_phone' && btn.number) {
-                                // Linking.openURL(`tel:${btn.number}`)
-                                console.log("Call", btn.number);
-                            }
-                        }
-                    }))
-                );
+                const override = normalizeEmergencyOverride(response.emergency_override, userProfile);
+
+                if (Platform.OS === 'web') {
+                    setEmergencyOverride(override);
+                    setShowEmergencyModal(true);
+                } else {
+                    Alert.alert(
+                        "Safety Alert",
+                        override.display_message,
+                        [
+                            ...override.buttons.map((btn: any) => ({
+                                text: btn.label,
+                                onPress: () => handleEmergencyAction(btn)
+                            })),
+                            { text: "Close", style: "cancel" }
+                        ]
+                    );
+                }
                 return;
             }
 
@@ -768,6 +802,48 @@ export default function HomeScreen() {
                 )
             )}
 
+            {/* Emergency override modal */}
+            <Modal
+                visible={showEmergencyModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setShowEmergencyModal(false);
+                    setEmergencyOverride(null);
+                }}
+            >
+                <View style={styles.emergencyOverlay}>
+                    <View style={styles.emergencyCard}>
+                        <Text style={styles.emergencyTitle}>Safety Alert</Text>
+                        <Text style={styles.emergencyMessage}>
+                            {emergencyOverride?.display_message || "Emergency detected. Please seek help immediately."}
+                        </Text>
+                        <View style={styles.emergencyButtons}>
+                            {(emergencyOverride?.buttons || []).map((btn: any, index: number) => (
+                                <TouchableOpacity
+                                    key={`emergency-btn-${index}`}
+                                    style={styles.emergencyButtonPrimary}
+                                    onPress={() => handleEmergencyAction(btn)}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.emergencyButtonLabel}>{btn.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            <TouchableOpacity
+                                style={styles.emergencyButtonSecondary}
+                                onPress={() => {
+                                    setShowEmergencyModal(false);
+                                    setEmergencyOverride(null);
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.emergencyButtonLabelSecondary}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             {/* Post-exercise feedback modal — recorded in Opik */}
             <Modal
                 visible={showFeedbackModal}
@@ -1006,6 +1082,69 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
     },
+    emergencyOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    emergencyCard: {
+        backgroundColor: 'rgba(56, 0, 0, 0.98)',
+        borderRadius: THEME.borderRadius.l,
+        padding: THEME.spacing.xl,
+        width: '100%',
+        maxWidth: 360,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+    },
+    emergencyTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#FFF',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    emergencyMessage: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.9)',
+        marginBottom: 20,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    emergencyButtons: {
+        width: '100%',
+        gap: 12,
+    },
+    emergencyButtonPrimary: {
+        backgroundColor: '#D32F2F',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: THEME.borderRadius.m,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emergencyButtonSecondary: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: THEME.borderRadius.m,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    emergencyButtonLabel: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    emergencyButtonLabelSecondary: {
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 15,
+        fontWeight: '600',
+    },
     // Feedback modal (post-exercise — Opik tracking)
     feedbackOverlay: {
         flex: 1,
@@ -1066,4 +1205,5 @@ const styles = StyleSheet.create({
     },
 
 });
+
 
