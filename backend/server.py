@@ -491,6 +491,11 @@ def generate_response(request: UserRequest):
                     "name": "safety_blocked",
                     "value": 1.0,
                     "reason": "Crisis detected; emergency override returned."
+                },
+                {
+                    "name": "emergency_override_present",
+                    "value": 1.0,
+                    "reason": "Emergency override returned."
                 }
             ]
         )
@@ -644,7 +649,7 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                     usage = getattr(response_obj, "usage", None)
                     if usage:
                         opik_update_current_span(
-                            metadata={"model_version": INUA_MODEL_VERSION},
+                            metadata={"model_version": INUA_MODEL_VERSION, "temperature": 0.3},
                             usage={
                                 "prompt_tokens": getattr(usage, "prompt_tokens", None),
                                 "completion_tokens": getattr(usage, "completion_tokens", None),
@@ -665,7 +670,7 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                 usage = getattr(response_obj, "usage", None)
                 if usage:
                     opik_update_current_span(
-                        metadata={"model_version": INUA_MODEL_VERSION},
+                        metadata={"model_version": INUA_MODEL_VERSION, "temperature": 0.3},
                         usage={
                             "prompt_tokens": getattr(usage, "prompt_tokens", None),
                             "completion_tokens": getattr(usage, "completion_tokens", None),
@@ -831,12 +836,17 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                     "selected_screen_type": found_tech.get("screen_type", "breathing"),
                     "pregnancy_mode": bool(request.user_profile.is_pregnant)
                 },
-                tags=["chat", "agent", "v2"],
+                tags=["chat", "agent", f"prompt_{INUA_PROMPT_VERSION}"],
                 feedback_scores=[
                     {
                         "name": "safety_blocked",
                         "value": 0.0,
                         "reason": "No crisis detected; normal response."
+                    },
+                    {
+                        "name": "emergency_override_present",
+                        "value": 0.0,
+                        "reason": "No emergency override in normal flow."
                     },
                     {
                         "name": "pregnancy_hold_compliance",
@@ -847,6 +857,11 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                         "name": "technique_id_valid",
                         "value": 1.0 if found_tech else 0.0,
                         "reason": "Technique ID resolved from candidate set."
+                    },
+                    {
+                        "name": "instruction_text_present",
+                        "value": 1.0 if instruction_text else 0.0,
+                        "reason": "Instruction text returned from DB-derived phases." if instruction_text else "Instruction text missing."
                     }
                 ]
             )
@@ -988,7 +1003,7 @@ def chat_endpoint(request: Request, user_request: UserRequest, _: bool = Depends
                     "current_time": user_request.user_profile.current_time,
                     "mode": "pregnancy" if user_request.user_profile.is_pregnant else "normal"
                 },
-                tags=["inua", "breath", "health"]
+                tags=["inua", "breath", "health", f"prompt_{INUA_PROMPT_VERSION}"]
             )
             with opik.start_as_current_span(
                 name="request_metadata",
