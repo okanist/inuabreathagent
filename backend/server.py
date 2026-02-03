@@ -74,8 +74,8 @@ try:
         OPIK_AVAILABLE = True
     else:
         raise ImportError("No Opik Key")
-except:
-    print("Opik disabled (no key or module)", flush=True)
+except Exception as e:
+    print(f"Opik disabled ({type(e).__name__}: {e})", flush=True)
     opik = None
     def track(name=None):
         def decorator(func):
@@ -580,16 +580,28 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
     selection_note = ""
     try:
         if OPIK_AVAILABLE and opik:
-            with opik.start_as_current_span(
-                name="llm_select_and_compose",
-                type="llm",
-                metadata={
-                    "model": INUA_MODEL_VERSION,
-                    "prompt_version": INUA_PROMPT_VERSION,
-                    "candidate_count": len(candidates)
-                },
-                input={"user_input_preview": sanitized_input[:200], "candidate_count": len(candidates)},
-            ):
+            try:
+                with opik.start_as_current_span(
+                    name="llm_select_and_compose",
+                    type="llm",
+                    metadata={
+                        "model": INUA_MODEL_VERSION,
+                        "prompt_version": INUA_PROMPT_VERSION,
+                        "candidate_count": len(candidates)
+                    },
+                    input={"user_input_preview": sanitized_input[:200], "candidate_count": len(candidates)},
+                ):
+                    response_obj = client.chat.completions.create(
+                        model=INUA_MODEL_VERSION,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": sanitized_input}
+                        ],
+                        temperature=0.3
+                    )
+                    content = response_obj.choices[0].message.content
+            except Exception as e:
+                log_debug(f"Opik span error (llm_select_and_compose): {e}")
                 response_obj = client.chat.completions.create(
                     model=INUA_MODEL_VERSION,
                     messages=[
@@ -698,8 +710,12 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
             phases = found_tech.get("phases", {})
             duration = found_tech.get("default_duration_sec", 180)
             
-            # Chat instructions: instruction_clue (tüm egzersizler) yoksa phases'ten üret
-            instruction_text = (found_tech.get("agent_config") or {}).get("instruction_clue") or build_instruction_text(found_tech)
+            # Chat instructions:
+            # If pregnant, always build from phases (holds already removed).
+            if request.user_profile.is_pregnant:
+                instruction_text = build_instruction_text(found_tech)
+            else:
+                instruction_text = (found_tech.get("agent_config") or {}).get("instruction_clue") or build_instruction_text(found_tech)
             
             # Message without instruction (LLM only provides empathy and reason)
             message = f"{empathy} {reason}"
@@ -716,8 +732,8 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                                 current_span.metadata["emotion_label"] = emotion_label
                             if selection_rationale:
                                 current_span.metadata["selection_rationale"] = selection_rationale[:200]
-                except:
-                    pass
+                except Exception as e:
+                    log_debug(f"Opik metadata update error: {e}")
             
             result = {
                 "message_for_user": message,
