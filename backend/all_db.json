@@ -16,7 +16,7 @@
                 "instruction_clue": "Inhale 4s, Hold 4s, Exhale 4s, Hold 4s."
             },
             "context_rules": {
-                "time_of_day": ["day", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": false,
                 "pregnancy_logic": "BLOCK",
                 "pregnancy_alternative_id": "equal_breathing",
@@ -79,7 +79,7 @@
             "context_rules": {
                 "time_of_day": ["day"],
                 "pregnancy_safe": false,
-                "pregnancy_logic": "FORBIDDEN",
+                "pregnancy_logic": "BLOCK",
                 "reason": "Abdominal pressure risk."
             },
             "phases": {
@@ -143,7 +143,7 @@
                 "instruction_clue": "Open mouth wide inside and yawn with sound."
             },
             "context_rules": {
-                "time_of_day": ["day", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE"
             },
@@ -172,7 +172,7 @@
                 "instruction_clue": "Deep inhale, exhale tongue out, eyes up, 'Haaa' sound."
             },
             "context_rules": {
-                "time_of_day": ["day", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE"
             },
@@ -505,7 +505,13 @@
                 "time_of_day": ["any"],
                 "pregnancy_safe": false,
                 "pregnancy_logic": "MODIFY",
-                "modification": "Do not squeeze belly, only hands/feet."
+                "modification": "Do not squeeze belly, only hands/feet.",
+                "pregnancy_mod_phases": {
+                    "inhale_sec": 4,
+                    "hold_in_sec": 0,
+                    "exhale_sec": 4,
+                    "hold_out_sec": 0
+                }
             },
             "phases": {
                 "inhale_sec": 4,
@@ -564,7 +570,7 @@
                 "instruction_clue": "Inhale/exhale left nostril only."
             },
             "context_rules": {
-                "time_of_day": ["night", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE"
             },
@@ -593,7 +599,7 @@
                 "instruction_clue": "Close ears and make 'Mmm' sound."
             },
             "context_rules": {
-                "time_of_day": ["night", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE"
             },
@@ -622,7 +628,7 @@
                 "instruction_clue": "Mental scanning of whole body."
             },
             "context_rules": {
-                "time_of_day": ["night", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE"
             },
@@ -647,7 +653,7 @@
                 "instruction_clue": "Inhale through the nose for 3s, exhale slowly through the mouth for 6s."
             },
             "context_rules": {
-                "time_of_day": ["day", "night", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE",
                 "pregnancy_alternative_id": null
@@ -703,7 +709,7 @@
                 "instruction_clue": "Quickly tap the tips of all your fingers against each other repeatedly."
             },
             "context_rules": {
-                "time_of_day": ["day", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE",
                 "pregnancy_alternative_id": null
@@ -729,7 +735,7 @@
                 "instruction_clue": "Inhale nose 4s, Exhale nose 4s with a soft whisper sound from your throat."
             },
             "context_rules": {
-                "time_of_day": ["night", "any"],
+                "time_of_day": ["any"],
                 "pregnancy_safe": true,
                 "pregnancy_logic": "SAFE",
                 "pregnancy_alternative_id": null

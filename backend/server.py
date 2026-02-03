@@ -36,16 +36,16 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Middleware - Security: Restrict origins in production
-ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 # In production, set ALLOWED_ORIGINS env var: "https://yourdomain.com,http://localhost:3000"
 if ALLOWED_ORIGINS == ["*"]:
-    print("⚠️  WARNING: CORS allows all origins. Set ALLOWED_ORIGINS env var in production!", flush=True)
+    print("WARNING: CORS allows all origins. Set ALLOWED_ORIGINS env var in production!", flush=True)
 
 # Security: Credentials cannot be used with wildcard origins (2026 security standard)
 # If using wildcard, disable credentials for security
 if ALLOWED_ORIGINS == ["*"]:
     allow_credentials = False
-    print("⚠️  WARNING: Credentials disabled due to wildcard CORS origins!", flush=True)
+    print("WARNING: Credentials disabled due to wildcard CORS origins!", flush=True)
 else:
     allow_credentials = True
 
@@ -181,10 +181,47 @@ class FeedbackRequest(BaseModel):
 DB_PATH = os.path.join(os.path.dirname(__file__), "all_db.json")
 
 def load_techniques_db():
-    """Load V2 breathing techniques database"""
+    """Load V2 breathing techniques database with basic validation"""
     try:
         with open(DB_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
+            # Basic schema validation and normalization
+            techniques = data.get("techniques", [])
+            for tech in techniques:
+                ctx = tech.get("context_rules", {}) or {}
+                logic = str(ctx.get("pregnancy_logic", "SAFE")).upper()
+                if logic not in {"SAFE", "BLOCK", "MODIFY"}:
+                    print(
+                        f"WARNING: Invalid pregnancy_logic '{logic}' for technique '{tech.get('id', '')}'. "
+                        "Defaulting to BLOCK for safety.",
+                        flush=True,
+                    )
+                    ctx["pregnancy_logic"] = "BLOCK"
+                else:
+                    ctx["pregnancy_logic"] = logic
+
+                if ctx.get("pregnancy_logic") == "MODIFY" and "pregnancy_mod_phases" not in ctx:
+                    print(
+                        f"WARNING: pregnancy_logic=MODIFY but no pregnancy_mod_phases for '{tech.get('id', '')}'. "
+                        "Defaulting to BLOCK for safety.",
+                        flush=True,
+                    )
+                    ctx["pregnancy_logic"] = "BLOCK"
+
+                pregnancy_safe = ctx.get("pregnancy_safe")
+                if isinstance(pregnancy_safe, bool):
+                    if ctx.get("pregnancy_logic") == "BLOCK" and pregnancy_safe:
+                        print(
+                            f"WARNING: pregnancy_safe=true but pregnancy_logic=BLOCK for '{tech.get('id', '')}'.",
+                            flush=True,
+                        )
+                    if ctx.get("pregnancy_logic") in {"SAFE", "MODIFY"} and not pregnancy_safe:
+                        print(
+                            f"WARNING: pregnancy_safe=false but pregnancy_logic={ctx.get('pregnancy_logic')} for '{tech.get('id', '')}'.",
+                            flush=True,
+                        )
+                tech["context_rules"] = ctx
+            data["techniques"] = techniques
             return data
     except Exception as e:
         print(f"Error loading DB: {e}", flush=True)
@@ -225,7 +262,15 @@ def normalize_technique_for_profile(tech: dict, user_profile: dict) -> Optional[
         shaped["effective_context"] = {"pregnancy_logic": "MODIFY_APPLIED"}
         return shaped
 
+    # SAFE (or any other non-blocking) - enforce no breath holds for pregnancy
     shaped = dict(tech)
+    phases = dict(shaped.get("phases") or {})
+    shaped["phases"] = {
+        "inhale_sec": int(phases.get("inhale_sec", 4)),
+        "hold_in_sec": 0,
+        "exhale_sec": int(phases.get("exhale_sec", 4)),
+        "hold_out_sec": 0,
+    }
     shaped["effective_context"] = {"pregnancy_logic": "SAFE"}
     return shaped
 
@@ -300,6 +345,12 @@ def log_debug(message: str):
     """Writes message to both console and file"""
     print(message, flush=True)
     try:
+        # Basic log rotation to prevent unbounded growth (5MB max)
+        if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 5 * 1024 * 1024:
+            rotated = LOG_FILE + ".1"
+            if os.path.exists(rotated):
+                os.remove(rotated)
+            os.rename(LOG_FILE, rotated)
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(message + "\n")
     except Exception as e:
@@ -567,16 +618,30 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
         
         # Parse JSON with security validation
         import re
-        try:
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
-            if json_match:
-                content = json_match.group(0)
-            if "```json" in content:
-                content = content.replace("```json", "").replace("```", "").strip()
-            if "```" in content:
-                content = content.replace("```", "").strip()
-        except:
-            pass
+        def _extract_json_object(text: str) -> Optional[str]:
+            """Extract the first JSON object from text, or return None."""
+            if not text:
+                return None
+            cleaned = text.replace("```json", "").replace("```", "").strip()
+            # Fast path: whole string is JSON
+            try:
+                json.loads(cleaned)
+                return cleaned
+            except Exception:
+                pass
+            decoder = json.JSONDecoder()
+            for i, ch in enumerate(cleaned):
+                if ch == "{":
+                    try:
+                        obj, _end = decoder.raw_decode(cleaned[i:])
+                        return json.dumps(obj)
+                    except Exception:
+                        continue
+            return None
+
+        extracted = _extract_json_object(content)
+        if extracted:
+            content = extracted
         
         # Security: Safe JSON parsing with whitelist validation
         try:
@@ -745,7 +810,7 @@ def get_techniques_endpoint(request: Request, is_pregnant: bool = False, is_nigh
         # Pregnancy filter
         tech_copy = tech.copy()
         if is_pregnant:
-            pregnancy_logic = context.get("pregnancy_logic", "SAFE")
+            pregnancy_logic = str(context.get("pregnancy_logic", "SAFE")).upper()
             
             if pregnancy_logic == "BLOCK":
                 continue
@@ -753,6 +818,14 @@ def get_techniques_endpoint(request: Request, is_pregnant: bool = False, is_nigh
                 # Replace phases with modified phases
                 if "pregnancy_mod_phases" in context:
                     tech_copy["phases"] = context["pregnancy_mod_phases"]
+            else:
+                phases = dict(tech_copy.get("phases") or {})
+                tech_copy["phases"] = {
+                    "inhale_sec": int(phases.get("inhale_sec", 4)),
+                    "hold_in_sec": 0,
+                    "exhale_sec": int(phases.get("exhale_sec", 4)),
+                    "hold_out_sec": 0,
+                }
         
         result.append(tech_copy)
     
