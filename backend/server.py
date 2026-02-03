@@ -453,11 +453,15 @@ def generate_response(request: UserRequest):
     intent = check_crisis_intent(request.user_input)
     if intent["is_crisis"]:
         log_debug("DEBUG: Crisis Detected!")
+        if intent["category"] == "SUICIDE":
+            display_message = "You are not alone. Please seek professional help immediately."
+        else:
+            display_message = "This may be a medical emergency. Please seek urgent help immediately."
         return {
             "emergency_override": {
                 "detected_category": intent["category"],
                 "ui_action": "show_fullscreen_sos",
-                "display_message": "Emergency detected.",
+                "display_message": display_message,
                 "buttons": []
             }
         }
