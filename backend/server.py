@@ -60,7 +60,7 @@ app.add_middleware(
 # Opik Mocking
 try:
     import opik
-    from opik import Opik, track
+    from opik import Opik, track, opik_context
     opik_api_key = os.environ.get("OPIK_API_KEY", "").strip()
     opik_workspace = os.environ.get("OPIK_WORKSPACE", "").strip().strip('"').strip("'")
     opik_project_name = os.environ.get("OPIK_PROJECT_NAME", "InuaBreath").strip().strip('"').strip("'")
@@ -77,6 +77,7 @@ try:
 except Exception as e:
     print(f"Opik disabled ({type(e).__name__}: {e})", flush=True)
     opik = None
+    opik_context = None
     def track(name=None):
         def decorator(func):
             return func
@@ -356,6 +357,28 @@ def log_debug(message: str):
     except Exception as e:
         print(f"Log Error: {e}")
 
+def opik_update_current_trace(*, metadata: Optional[dict] = None, tags: Optional[list] = None, feedback_scores: Optional[list] = None, thread_id: Optional[str] = None):
+    """Safely update Opik current trace with metadata/tags/feedback scores."""
+    if not (OPIK_AVAILABLE and opik and opik_context):
+        return
+    try:
+        opik_context.update_current_trace(
+            metadata=metadata or None,
+            tags=tags or None,
+            feedback_scores=feedback_scores or None,
+            thread_id=thread_id or None
+        )
+    except Exception as e:
+        log_debug(f"Opik trace update error: {e}")
+
+def opik_update_current_span(**kwargs):
+    """Safely update Opik current span with metadata/feedback scores."""
+    if not (OPIK_AVAILABLE and opik and opik_context):
+        return
+    try:
+        opik_context.update_current_span(**kwargs)
+    except Exception as e:
+        log_debug(f"Opik span update error: {e}")
 
 
 @track(name="rag_filter_techniques")
@@ -457,6 +480,20 @@ def generate_response(request: UserRequest):
             display_message = "You are not alone. Please seek professional help immediately."
         else:
             display_message = "This may be a medical emergency. Please seek urgent help immediately."
+        opik_update_current_trace(
+            metadata={
+                "crisis_detected": True,
+                "crisis_category": intent["category"]
+            },
+            tags=["crisis", intent["category"].lower()],
+            feedback_scores=[
+                {
+                    "name": "safety_blocked",
+                    "value": 1.0,
+                    "reason": "Crisis detected; emergency override returned."
+                }
+            ]
+        )
         return {
             "emergency_override": {
                 "detected_category": intent["category"],
@@ -604,6 +641,16 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                         temperature=0.3
                     )
                     content = response_obj.choices[0].message.content
+                    usage = getattr(response_obj, "usage", None)
+                    if usage:
+                        opik_update_current_span(
+                            metadata={"model_version": INUA_MODEL_VERSION},
+                            usage={
+                                "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                "completion_tokens": getattr(usage, "completion_tokens", None),
+                                "total_tokens": getattr(usage, "total_tokens", None),
+                            }
+                        )
             except Exception as e:
                 log_debug(f"Opik span error (llm_select_and_compose): {e}")
                 response_obj = client.chat.completions.create(
@@ -615,6 +662,16 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                     temperature=0.3
                 )
                 content = response_obj.choices[0].message.content
+                usage = getattr(response_obj, "usage", None)
+                if usage:
+                    opik_update_current_span(
+                        metadata={"model_version": INUA_MODEL_VERSION},
+                        usage={
+                            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                            "completion_tokens": getattr(usage, "completion_tokens", None),
+                            "total_tokens": getattr(usage, "total_tokens", None),
+                        }
+                    )
         else:
             # Security: Sanitize user input before sending to LLM
             sanitized_input = sanitize_user_input_for_llm(request.user_input)
@@ -759,7 +816,41 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
             user_input_lower = request.user_input.lower()
             if "sleep" in user_input_lower or "insomnia" in user_input_lower:
                 result["duration_seconds"] = max(duration, 240)
-            
+
+            # Opik trace-level feedback scores (deterministic checks)
+            if request.user_profile.is_pregnant:
+                hold_in = int(phases.get("hold_in_sec", 0) or 0)
+                hold_out = int(phases.get("hold_out_sec", 0) or 0)
+                pregnancy_hold_ok = 1.0 if (hold_in == 0 and hold_out == 0) else 0.0
+            else:
+                pregnancy_hold_ok = 1.0
+
+            opik_update_current_trace(
+                metadata={
+                    "selected_technique_id": tech_id,
+                    "selected_screen_type": found_tech.get("screen_type", "breathing"),
+                    "pregnancy_mode": bool(request.user_profile.is_pregnant)
+                },
+                tags=["chat", "agent", "v2"],
+                feedback_scores=[
+                    {
+                        "name": "safety_blocked",
+                        "value": 0.0,
+                        "reason": "No crisis detected; normal response."
+                    },
+                    {
+                        "name": "pregnancy_hold_compliance",
+                        "value": pregnancy_hold_ok,
+                        "reason": "No breath holds when pregnant." if pregnancy_hold_ok == 1.0 else "Breath holds present during pregnancy."
+                    },
+                    {
+                        "name": "technique_id_valid",
+                        "value": 1.0 if found_tech else 0.0,
+                        "reason": "Technique ID resolved from candidate set."
+                    }
+                ]
+            )
+
             log_debug(f"FINAL RESULT: {result}")
             return result
         else:
@@ -886,6 +977,19 @@ def chat_endpoint(request: Request, user_request: UserRequest, _: bool = Depends
     
     if OPIK_AVAILABLE and opik:
         try:
+            opik_update_current_trace(
+                metadata={
+                    "session_id": session_id,
+                    "prompt_version": INUA_PROMPT_VERSION,
+                    "model_version": INUA_MODEL_VERSION,
+                    "is_pregnant": user_request.user_profile.is_pregnant,
+                    "trimester": user_request.user_profile.trimester,
+                    "country_code": user_request.user_profile.country_code,
+                    "current_time": user_request.user_profile.current_time,
+                    "mode": "pregnancy" if user_request.user_profile.is_pregnant else "normal"
+                },
+                tags=["inua", "breath", "health"]
+            )
             with opik.start_as_current_span(
                 name="request_metadata",
                 type="general",
