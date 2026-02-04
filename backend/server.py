@@ -370,12 +370,15 @@ def get_opik_trace_id() -> Optional[str]:
         log_debug(f"Opik trace id error: {e}")
         return None
 
-def opik_update_current_trace(*, metadata: Optional[dict] = None, tags: Optional[list] = None, feedback_scores: Optional[list] = None, thread_id: Optional[str] = None):
+def opik_update_current_trace(*, name: Optional[str] = None, input: Optional[dict] = None, output: Optional[dict] = None, metadata: Optional[dict] = None, tags: Optional[list] = None, feedback_scores: Optional[list] = None, thread_id: Optional[str] = None):
     """Safely update Opik current trace with metadata/tags/feedback scores."""
     if not (OPIK_AVAILABLE and opik and opik_context):
         return
     try:
         opik_context.update_current_trace(
+            name=name or None,
+            input=input or None,
+            output=output or None,
             metadata=metadata or None,
             tags=tags or None,
             feedback_scores=feedback_scores or None,
@@ -512,6 +515,13 @@ def generate_response(request: UserRequest):
                     "reason": "Emergency override returned."
                 }
             ]
+        )
+        opik_update_current_trace(
+            output={
+                "emergency_override": True,
+                "detected_category": intent["category"],
+                "display_message": display_message
+            }
         )
         return {
             "emergency_override": {
@@ -881,6 +891,15 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                     }
                 ]
             )
+            opik_update_current_trace(
+                output={
+                    "suggested_technique_id": tech_id,
+                    "message_for_user": message,
+                    "duration_seconds": result.get("duration_seconds"),
+                    "screen_type": found_tech.get("screen_type", "breathing"),
+                    "emergency_override": False
+                }
+            )
 
             log_debug(f"FINAL RESULT: {result}")
             return result
@@ -1012,6 +1031,15 @@ def chat_endpoint(request: Request, user_request: UserRequest, _: bool = Depends
     if OPIK_AVAILABLE and opik:
         try:
             opik_update_current_trace(
+                input={
+                    "user_input": user_request.user_input,
+                    "user_profile": {
+                        "is_pregnant": user_request.user_profile.is_pregnant,
+                        "trimester": user_request.user_profile.trimester,
+                        "current_time": user_request.user_profile.current_time,
+                        "country_code": user_request.user_profile.country_code,
+                    }
+                },
                 metadata={
                     "session_id": session_id,
                     "prompt_version": INUA_PROMPT_VERSION,
