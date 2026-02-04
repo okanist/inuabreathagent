@@ -980,7 +980,7 @@ def feedback_endpoint(request: Request, body: FeedbackRequest):
     """Log exercise feedback (helpful / not helpful) for Opik tracking."""
     try:
         if OPIK_AVAILABLE and opik:
-            # If we have a trace_id, log a feedback score to that trace
+            # If we have a trace_id, log a feedback score to that trace (no new trace/span)
             if body.trace_id and opik_client:
                 score_value = 1.0 if body.feedback == "positive" else 0.0
                 try:
@@ -994,17 +994,6 @@ def feedback_endpoint(request: Request, body: FeedbackRequest):
                     ])
                 except Exception as e:
                     log_debug(f"Opik trace feedback log error: {e}")
-            with opik.start_as_current_span(
-                name="exercise_feedback",
-                type="feedback",
-                metadata={
-                    "technique_id": body.technique_id,
-                    "technique_title": body.technique_title or "",
-                    "feedback": body.feedback,
-                    "helpful": body.feedback == "positive",
-                }
-            ):
-                pass
         log_debug(f"Feedback: technique_id={body.technique_id} feedback={body.feedback}")
     except Exception as e:
         log_debug(f"Opik feedback log error: {e}")
