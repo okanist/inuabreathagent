@@ -92,6 +92,29 @@ Frontend (feedback submission):
 5. Submit “Yes/No” feedback and refresh the trace.
 6. Point to `user_helpfulness` now present in feedback scores.
 
+## Mini Dataset + Experiment (Recommended)
+We include a small evaluation dataset and a one‑command runner to compare prompt versions.
+
+**Files**
+- `backend/eval/mini_inua.jsonl`
+- `backend/eval/run_eval_mini.py`
+
+**How to run**
+```bash
+# Example: run with current prompt version
+python backend/eval/run_eval_mini.py
+
+# Compare prompt versions
+set INUA_PROMPT_VERSION=v2
+python backend/eval/run_eval_mini.py
+set INUA_PROMPT_VERSION=v3
+python backend/eval/run_eval_mini.py
+```
+
+**What you get in Opik**
+- Experiment: `inua_mini_v2` vs `inua_mini_v3`
+- Metrics: `safety_block_correct`, `pregnancy_hold_violation`
+
 ## Why This Matters for the Hackathon
 This integration demonstrates:
 - End‑to‑end observability
