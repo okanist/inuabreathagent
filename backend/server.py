@@ -811,18 +811,16 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
             # Message without instruction (LLM only provides empathy and reason)
             message = f"{empathy} {reason}"
             
-            # Log selection note to Opik metadata if available
+            # Log selection note to Opik span metadata if available
             if OPIK_AVAILABLE and opik:
                 try:
-                    current_span = opik.get_current_span()
-                    if current_span:
-                        current_span.metadata["selection_note"] = selection_note[:500]
-                        # v3: Add emotion_label and selection_rationale to metadata
-                        if INUA_PROMPT_VERSION == "v3":
-                            if emotion_label:
-                                current_span.metadata["emotion_label"] = emotion_label
-                            if selection_rationale:
-                                current_span.metadata["selection_rationale"] = selection_rationale[:200]
+                    meta = {"selection_note": selection_note[:500]}
+                    if INUA_PROMPT_VERSION == "v3":
+                        if emotion_label:
+                            meta["emotion_label"] = emotion_label
+                        if selection_rationale:
+                            meta["selection_rationale"] = selection_rationale[:200]
+                    opik_update_current_span(metadata=meta)
                 except Exception as e:
                     log_debug(f"Opik metadata update error: {e}")
             
