@@ -115,6 +115,12 @@ python backend/eval/run_eval_mini.py
 - Experiment: `inua_mini_v2` vs `inua_mini_v3`
 - Metrics: `safety_block_correct`, `pregnancy_hold_violation`
 
+## Results (Screenshots)
+Place the comparison screenshots here after exporting from Opik:
+
+![Experiments Compare](assets/opik/experiments-compare.png)
+![Metrics Table](assets/opik/metrics-table.png)
+
 ## Why This Matters for the Hackathon
 This integration demonstrates:
 - End‑to‑end observability
