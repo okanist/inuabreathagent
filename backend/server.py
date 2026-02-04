@@ -166,6 +166,7 @@ class AgentResponse(BaseModel):
     duration_seconds: Optional[int] = 180
     app_command: Optional[Dict] = None
     emergency_override: Optional[Dict] = None
+    trace_id: Optional[str] = None
     # thought_process removed - only logged to Opik metadata
 
 
@@ -173,6 +174,7 @@ class FeedbackRequest(BaseModel):
     technique_id: str = Field(..., max_length=100)
     technique_title: Optional[str] = Field(None, max_length=200)
     feedback: str = Field(..., pattern=r"^(positive|negative)$")
+    trace_id: Optional[str] = Field(None, max_length=100)
 
 # ... (rest of code)
 
@@ -357,6 +359,17 @@ def log_debug(message: str):
     except Exception as e:
         print(f"Log Error: {e}")
 
+def get_opik_trace_id() -> Optional[str]:
+    """Safely retrieve current Opik trace id, if available."""
+    if not (OPIK_AVAILABLE and opik and opik_context):
+        return None
+    try:
+        trace_data = opik_context.get_current_trace_data()
+        return getattr(trace_data, "id", None)
+    except Exception as e:
+        log_debug(f"Opik trace id error: {e}")
+        return None
+
 def opik_update_current_trace(*, metadata: Optional[dict] = None, tags: Optional[list] = None, feedback_scores: Optional[list] = None, thread_id: Optional[str] = None):
     """Safely update Opik current trace with metadata/tags/feedback scores."""
     if not (OPIK_AVAILABLE and opik and opik_context):
@@ -480,6 +493,7 @@ def generate_response(request: UserRequest):
             display_message = "You are not alone. Please seek professional help immediately."
         else:
             display_message = "This may be a medical emergency. Please seek urgent help immediately."
+        trace_id = get_opik_trace_id()
         opik_update_current_trace(
             metadata={
                 "crisis_detected": True,
@@ -505,7 +519,8 @@ def generate_response(request: UserRequest):
                 "ui_action": "show_fullscreen_sos",
                 "display_message": display_message,
                 "buttons": []
-            }
+            },
+            "trace_id": trace_id
         }
 
     # B. RAG - Get shaped candidates
@@ -814,7 +829,8 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
                     "phases": phases,  # Already normalized (safe for pregnancy)
                     "ui_texts": found_tech.get("ui_texts", {}),
                     "default_duration_sec": duration
-                }
+                },
+                "trace_id": get_opik_trace_id()
             }
             
             # Duration adjustments
@@ -964,6 +980,20 @@ def feedback_endpoint(request: Request, body: FeedbackRequest):
     """Log exercise feedback (helpful / not helpful) for Opik tracking."""
     try:
         if OPIK_AVAILABLE and opik:
+            # If we have a trace_id, log a feedback score to that trace
+            if body.trace_id and opik_client:
+                score_value = 1.0 if body.feedback == "positive" else 0.0
+                try:
+                    opik_client.log_traces_feedback_scores([
+                        {
+                            "id": body.trace_id,
+                            "name": "user_helpfulness",
+                            "value": score_value,
+                            "reason": "User marked exercise as helpful." if score_value == 1.0 else "User marked exercise as not helpful."
+                        }
+                    ])
+                except Exception as e:
+                    log_debug(f"Opik trace feedback log error: {e}")
             with opik.start_as_current_span(
                 name="exercise_feedback",
                 type="feedback",

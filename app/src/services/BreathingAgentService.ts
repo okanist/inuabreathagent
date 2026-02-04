@@ -40,6 +40,7 @@ interface AgentResponse {
     suggested_technique?: BreathingTechnique | null;
     suggested_technique_id?: string | null;
     duration_seconds?: number;
+    trace_id?: string | null;
     app_command?: {
         type: 'play_audio' | 'start_animation' | 'haptic_pattern';
         value: string;
@@ -253,13 +254,13 @@ export class BreathingAgentService {
     }
 
     /** Send exercise feedback to backend for Opik tracking. */
-    static async submitExerciseFeedback(techniqueId: string, techniqueTitle: string, feedback: 'positive' | 'negative'): Promise<void> {
+    static async submitExerciseFeedback(techniqueId: string, techniqueTitle: string, feedback: 'positive' | 'negative', traceId?: string | null): Promise<void> {
         const base = this.getBaseUrl();
         try {
             await fetch(`${base}/api/feedback`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ technique_id: techniqueId, technique_title: techniqueTitle, feedback })
+                body: JSON.stringify({ technique_id: techniqueId, technique_title: techniqueTitle, feedback, trace_id: traceId || undefined })
             });
         } catch (_) { /* ignore */ }
     }

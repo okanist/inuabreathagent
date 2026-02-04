@@ -211,6 +211,7 @@ export default function HomeScreen() {
     /** Show "Did this help?" feedback modal when session completes */
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [sessionTechniqueId, setSessionTechniqueId] = useState<string | null>(null);
+    const [sessionTraceId, setSessionTraceId] = useState<string | null>(null);
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const [emergencyOverride, setEmergencyOverride] = useState<any>(null);
 
@@ -413,6 +414,9 @@ export default function HomeScreen() {
                         ]
                     );
                 }
+                if (response.trace_id) {
+                    setSessionTraceId(response.trace_id);
+                }
                 return;
             }
 
@@ -489,6 +493,7 @@ export default function HomeScreen() {
 
             setMessages(prev => [...prev, agentMsg]);
             setLoading(false);
+            setSessionTraceId(response.trace_id || null);
 
         } catch (error) {
             console.error("Agent failed", error);
@@ -549,7 +554,7 @@ export default function HomeScreen() {
     };
 
     const submitFeedback = async (feedback: 'positive' | 'negative') => {
-        await BreathingAgentService.submitExerciseFeedback(sessionTechniqueId || 'unknown', sessionTitle, feedback);
+        await BreathingAgentService.submitExerciseFeedback(sessionTechniqueId || 'unknown', sessionTitle, feedback, sessionTraceId);
         setShowFeedbackModal(false);
         handleBackToChat();
     };
