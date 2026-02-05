@@ -18,7 +18,7 @@ graph TD
     E -->|Pregnancy Mode| G[Physical Safety Layer]
     
     %% Adaptation (pregnancy-only)
-    F & G --> H[Technique Adaptation & Normalization (Pregnancy-only)]
+    F & G --> H[Technique Adaptation & Normalization - Pregnancy only]
     subgraph Adaptation_Process [Real-time Modification]
         H --> H1[Strip Unsafe Phases: e.g. Breath-holds]
         H --> H2[Recalculate Flow & Timing]
