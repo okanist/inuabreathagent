@@ -10,7 +10,6 @@ Inua is a health, fitness, and wellness assistant that guides users through brea
 This project was built for the Health, Fitness & Wellness track and the Best Use of Opik award.
 
 ## Why It Matters
-# Inua Breathing Agent
 
 When the brain is in **alarm mode**, it needs a **precise intervention**, not a conversation.  
 **Inua** automates the path to regulation within strict biological and safety boundaries.
