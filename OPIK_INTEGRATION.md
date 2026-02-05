@@ -15,7 +15,7 @@ Key backend file: `backend/server.py`
 Each `/api/agent/chat` call generates a single trace with multiple spans:
 - `agent_chat_endpoint` (root)
 - `request_metadata`
-- `guardrail_crisis_check`
+- `guardrail_crisis_check` (two-stage: keyword fast-path, else LLM classifier)
 - `rag_filter_techniques`
 - `llm_select_and_compose` (LLM call)
 
@@ -37,6 +37,12 @@ We store critical context at trace level, including:
 - `selected_screen_type`
 
 This makes every trace self-describing and easy to analyze in Opik.
+
+At span level (on `guardrail_crisis_check`), we also record:
+- `crisis_check_method`: `keyword` or `llm`
+- `crisis_check_ms`: end-to-end time spent in crisis guardrail (milliseconds)
+
+This is useful for quantifying the latency/cost impact of the LLM fallback and deciding whether to keep it enabled.
 
 ## Evaluation Scores (Automated)
 We attach deterministic feedback scores to each trace:
@@ -84,7 +90,11 @@ Frontend (feedback submission):
 3. Open the trace in Opik:
    - Feedback scores include automated metrics + user_helpfulness
    - Metadata shows model/prompt version and context
+   - The `guardrail_crisis_check` span includes `crisis_check_method` and `crisis_check_ms`
    - Token usage appears on the LLM span
+
+Tip: If you want to run crisis classification on a different model than the main agent, set:
+- `CRISIS_MODEL_NAME` (defaults to `LLM_MODEL_NAME`)
 
 ## Mini Dataset + Experiment (Recommended)
 We include a small evaluation dataset and a one-command runner to compare prompt versions.

@@ -98,4 +98,34 @@ try:
 except Exception as e:
     print(f"   [ERROR] {e}")
 
+
+# Test 4: Medical emergency detection
+print("\n4. Testing medical emergency detection...")
+test4 = {
+    "user_input": "I'm having sharp chest pains and my left arm is numb, I think I'm dying",
+    "user_profile": {
+        "is_pregnant": False,
+        "trimester": None,
+        "current_time": "13:10",
+        "country_code": "US"
+    }
+}
+
+try:
+    response = requests.post("http://localhost:8001/api/agent/chat", json=test4, timeout=10)
+    if response.status_code == 200:
+        data = response.json()
+        if data.get('emergency_override'):
+            cat = data.get('emergency_override', {}).get('detected_category')
+            print(f"   [OK] Medical emergency detected")
+            print(f"   - Category: {cat}")
+            if cat != "MEDICAL_EMERGENCY":
+                print(f"   [WARNING] Expected MEDICAL_EMERGENCY, got: {cat}")
+        else:
+            print(f"   [WARNING] Medical emergency not detected!")
+    else:
+        print(f"   [ERROR] Status: {response.status_code}")
+except Exception as e:
+    print(f"   [ERROR] {e}")
+
 print("\n=== Test Complete ===")

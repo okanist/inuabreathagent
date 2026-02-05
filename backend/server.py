@@ -5,6 +5,7 @@ load_dotenv()
 import json
 import uuid
 import re
+import time
 from typing import Optional, List, Dict, Tuple
 from fastapi import FastAPI, HTTPException, Body, Request, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -471,14 +472,122 @@ def get_safe_techniques(profile: UserProfile) -> Tuple[List[Dict], str]:
     log_debug(f"DEBUG: Final Safe List ({len(candidates)} candidates):\n{techniques_str}")
     return candidates, techniques_str
 
+CRISIS_MODEL_NAME = os.environ.get("CRISIS_MODEL_NAME", "").strip() or INUA_MODEL_VERSION
+
+# NOTE: Per product decision (Feb 2026): keyword layer is English-only.
+# The LLM classifier below is responsible for intent understanding.
+SUICIDE_KEYWORDS_EN = [
+    "suicide",
+    "kill myself",
+    "end my life",
+    "i want to kill myself",
+    "i'm going to kill myself",
+    "self harm",
+    "self-harm",
+]
+
+# Keep this list focused on *unambiguous red-flag* symptoms/requests to reduce false positives.
+MEDICAL_EMERGENCY_KEYWORDS_EN = [
+    "heart attack",
+    "chest pain",
+    "tightness in chest",
+    "not breathing",
+    "left arm numb",
+    "left arm is numb",
+    "left arm numbness",
+    "stroke",
+    "seizure",
+    "unconscious",
+    "severe bleeding",
+    "choking",
+    "ambulance",
+    "call 911",
+    "911",
+    "emergency",
+]
+
+def _basic_crisis_keyword_check(user_input: str) -> Optional[Dict]:
+    """Fast keyword-based crisis detection (English-only)."""
+    lower = user_input.lower()
+    if any(k in lower for k in SUICIDE_KEYWORDS_EN):
+        return {"is_crisis": True, "category": "SUICIDE"}
+    if any(k in lower for k in MEDICAL_EMERGENCY_KEYWORDS_EN):
+        return {"is_crisis": True, "category": "MEDICAL_EMERGENCY"}
+    return None
+
+def _extract_first_json_object(text: str) -> Optional[dict]:
+    """Extract the first JSON object from text, or return None."""
+    if not text:
+        return None
+    cleaned = text.replace("```json", "").replace("```", "").strip()
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(cleaned):
+        if ch == "{":
+            try:
+                obj, _end = decoder.raw_decode(cleaned[i:])
+                if isinstance(obj, dict):
+                    return obj
+            except Exception:
+                continue
+    return None
+
+def _llm_crisis_check(user_input: str) -> Dict:
+    """LLM-based crisis intent classification with strict JSON output."""
+    sanitized_input = sanitize_user_input_for_llm(user_input)
+    system_prompt = (
+        "You are a safety classifier for a wellness app. "
+        "Classify whether the user message indicates a crisis requiring emergency help. "
+        "Return ONLY JSON in this schema:\n"
+        "{ \"is_crisis\": true|false, \"category\": \"SUICIDE\"|\"MEDICAL_EMERGENCY\"|\"NONE\" }\n"
+        "Rules:\n"
+        "- SUICIDE if self-harm/suicidal intent is present.\n"
+        "- MEDICAL_EMERGENCY if severe physical symptoms suggest urgent medical danger "
+        "(e.g., chest pain, can't breathe, left arm numbness, heart attack, stroke, severe bleeding).\n"
+        "- NONE if not a crisis.\n"
+        "- Treat figurative language as NONE (e.g., 'I'm dying of laughter', 'this workload is killing me').\n"
+        "- If the user reports chest pain + arm numbness, or can't breathe, or signs of stroke/seizure/unconsciousness: MEDICAL_EMERGENCY.\n"
+        "- If unsure but there are red-flag physical symptoms, choose MEDICAL_EMERGENCY."
+    )
+    try:
+        response_obj = client.chat.completions.create(
+            model=CRISIS_MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": sanitized_input}
+            ],
+            temperature=0.0
+        )
+        content = response_obj.choices[0].message.content
+        parsed = _extract_first_json_object(content or "")
+        if not parsed:
+            return {"is_crisis": False, "category": "NONE"}
+        is_crisis = bool(parsed.get("is_crisis", False))
+        category = str(parsed.get("category", "NONE")).upper().strip()
+        if category not in {"SUICIDE", "MEDICAL_EMERGENCY", "NONE"}:
+            category = "NONE"
+        if is_crisis and category == "NONE":
+            category = "MEDICAL_EMERGENCY"
+        return {"is_crisis": is_crisis, "category": category}
+    except Exception as e:
+        log_debug(f"LLM crisis check failed: {type(e).__name__}")
+        return {"is_crisis": False, "category": "NONE"}
+
 @track(name="guardrail_crisis_check")
 def check_crisis_intent(user_input: str):
-    """Check for crisis keywords in user input."""
-    crisis_keywords = ["suicide", "kill myself", "i want to die", "heart attack"] 
-    for word in crisis_keywords:
-        if word in user_input.lower():
-            return {"is_crisis": True, "category": "MEDICAL_EMERGENCY" if "heart" in word else "SUICIDE"}
-    return {"is_crisis": False, "category": "NONE"}
+    """Check for crisis keywords in user input, then fall back to LLM classifier."""
+    t0 = time.perf_counter()
+    keyword_hit = _basic_crisis_keyword_check(user_input)
+    if keyword_hit:
+        dt_ms = (time.perf_counter() - t0) * 1000.0
+        if OPIK_AVAILABLE and opik:
+            opik_update_current_span(metadata={"crisis_check_method": "keyword", "crisis_check_ms": round(dt_ms, 2)})
+        return keyword_hit
+
+    out = _llm_crisis_check(user_input)
+    dt_ms = (time.perf_counter() - t0) * 1000.0
+    if OPIK_AVAILABLE and opik:
+        opik_update_current_span(metadata={"crisis_check_method": "llm", "crisis_check_ms": round(dt_ms, 2)})
+    return out
 
 def generate_response(request: UserRequest):
     """

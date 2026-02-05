@@ -37,6 +37,17 @@ API_AUTH_KEY=<same-api-key-as-app>
 
 Tip: Use a reserved ngrok domain to avoid rebuilding the APK when the URL changes.
 
+## Crisis Guardrail (Backend)
+The backend uses a separate crisis guardrail that runs *before* technique selection:
+- Stage 1: English-only keyword fast-path (low latency, low cost)
+- Stage 2: LLM crisis intent classifier fallback (better intent understanding, higher latency/cost)
+
+Opik:
+- See `guardrail_crisis_check` span metadata: `crisis_check_method` and `crisis_check_ms`.
+
+Configuration:
+- `CRISIS_MODEL_NAME`: optional model override for the crisis classifier (defaults to `LLM_MODEL_NAME`).
+
 ## Backend Deployment (Docker)
 Quick start:
 ```bash
@@ -80,4 +91,3 @@ backend/Dockerfile
 backend/docker-compose.yml
 backend/.env (created on server)
 ```
-

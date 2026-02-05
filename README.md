@@ -18,7 +18,7 @@ When users are stressed or exhausted, they cannot afford decision fatigue. Inua 
 
 ## Core Features
 - Context-aware technique selection (time of day, pregnancy mode)
-- Crisis detection with emergency override
+- Crisis detection with emergency override (two-stage: keyword fast-path + LLM intent classifier fallback)
 - Deterministic safety rules and technique normalization
 - Human feedback loop (helpful / not helpful)
 - Opik observability: traces, metrics, and experiments
@@ -26,7 +26,7 @@ When users are stressed or exhausted, they cannot afford decision fatigue. Inua 
 ## Safety and Responsibility
 Inua is a wellness tool, not a medical device.
 - No diagnostic claims
-- Crisis inputs trigger emergency override
+- Crisis inputs trigger emergency override (separate guardrail, independent from technique selection)
 - Pregnancy mode removes breath holds
 
 For security posture and safeguards, see `SECURITY.md`.
