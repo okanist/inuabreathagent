@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 // V2 Schema Types - Data now comes from Backend
 interface BreathingPhases {
@@ -248,7 +249,8 @@ export class BreathingAgentService {
     /** Backend base URL (same logic as callRemoteAgent). */
     static getBaseUrl(): string {
         const defaultDevUrl = Platform.OS === 'android' ? "http://10.0.2.2:8001" : "http://localhost:8001";
-        let base = process.env.EXPO_PUBLIC_API_URL || defaultDevUrl;
+        const extra = (Constants.expoConfig as any)?.extra || {};
+        let base = process.env.EXPO_PUBLIC_API_URL || extra.EXPO_PUBLIC_API_URL || defaultDevUrl;
         if (Platform.OS === 'android' && (base.includes('localhost') || base.includes('127.0.0.1'))) base = "http://10.0.2.2:8001";
         return base;
     }

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "app",
-    "slug": "app",
+    "name": "Inua",
+    "slug": "inua-breath",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "app",
+    "scheme": "inua",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -22,7 +22,7 @@
       "edgeToEdgeEnabled": false,
       "softwareKeyboardLayoutMode": "adjustNothing",
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.app"
+      "package": "com.inua.app"
     },
     "web": {
       "output": "static",
