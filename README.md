@@ -111,13 +111,13 @@ We use **Opik** to ensure the agent stays within defined biological and safety b
 - **Constraint Validation:** automated scoring for pregnancy-safe compliance and “hold-phase stripping” accuracy
 - **Traceable Reasoning:** visualize why a technique was chosen and how it was modified, enabling transparent evaluation of decisions
 
-See details in `OPIK_INTEGRATION.md`.
+See details in [`OPIK_INTEGRATION.md`](OPIK_INTEGRATION.md).
 
 ## Demo and Installation
-- Web demo: https://inuabreathagent.vercel.app/
-- Android APK: `Inua.apk`
-- Full setup steps: `INSTALLATION_GUIDE.md`
- - Engineering notes: `ENGINEERING_NOTES.md`
+- Web demo: [InuaBreath Web Demo](https://inuabreathagent.vercel.app/)
+- Android APK: [`Inua.apk`](Inua.apk)
+- Full setup steps: [`INSTALLATION_GUIDE.md`](INSTALLATION_GUIDE.md)
+- Engineering notes: [`ENGINEERING_NOTES.md`](ENGINEERING_NOTES.md)
 
 ## Tech Stack
 - FastAPI backend
