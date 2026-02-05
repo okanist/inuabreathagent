@@ -50,6 +50,8 @@ Inua’s objective isn’t only momentary relief — it’s **building emotional
 
 ## Decision Pipeline Overview
 
+Architecture diagram: [`docs/architecture.md`](docs/architecture.md).
+
 Inua follows a multi-layered execution flow where **safety** and **adaptation** are deterministic:
 
 1. **Two-Stage Safety Guardrail**
