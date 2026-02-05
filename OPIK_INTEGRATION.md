@@ -108,6 +108,11 @@ How to run:
 # Example: run with current prompt version
 python backend/eval/run_eval_mini.py
 
+# Local dry-run without Opik (useful if Opik is down or slow)
+set OPIK_SKIP=1
+python backend/eval/run_eval_mini.py
+set OPIK_SKIP=
+
 # Compare prompt versions
 set INUA_PROMPT_VERSION=v2
 python backend/eval/run_eval_mini.py

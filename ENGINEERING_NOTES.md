@@ -47,6 +47,10 @@ Opik:
 
 Configuration:
 - `CRISIS_MODEL_NAME`: optional model override for the crisis classifier (defaults to `LLM_MODEL_NAME`).
+- `LLM_TIMEOUT_SECONDS`: LLM request timeout in seconds (default: 20).
+
+Eval:
+- Set `OPIK_SKIP=1` to run local eval without Opik (useful if Opik or network is slow).
 
 ## Backend Deployment (Docker)
 Quick start:

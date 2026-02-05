@@ -6,6 +6,7 @@ import json
 import uuid
 import re
 import time
+import ast
 from typing import Optional, List, Dict, Tuple
 from fastapi import FastAPI, HTTPException, Body, Request, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -88,13 +89,15 @@ except Exception as e:
 
 # Initialize Client
 api_key = os.environ.get("IOINTELLIGENCE_API_KEY", "").strip()
+LLM_TIMEOUT_SECONDS = float(os.environ.get("LLM_TIMEOUT_SECONDS", "20").strip() or 20)
 print(f"DEBUG INIT: CWD = {os.getcwd()}", flush=True)
 # Security: Don't log API key length in production
 print(f"DEBUG INIT: API Key present? {'YES' if api_key else 'NO'}", flush=True)
 
 client = OpenAI(
     base_url="https://api.intelligence.io.solutions/api/v1",
-    api_key=api_key
+    api_key=api_key,
+    timeout=LLM_TIMEOUT_SECONDS
 )
 
 # Environment variables for Opik evaluation
@@ -516,10 +519,20 @@ def _basic_crisis_keyword_check(user_input: str) -> Optional[Dict]:
     return None
 
 def _extract_first_json_object(text: str) -> Optional[dict]:
-    """Extract the first JSON object from text, or return None."""
+    """Extract the first JSON-like object from text, or return None."""
     if not text:
         return None
     cleaned = text.replace("```json", "").replace("```", "").strip()
+
+    # 1) Strict JSON (whole string)
+    try:
+        obj = json.loads(cleaned)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # 2) Strict JSON (first object)
     decoder = json.JSONDecoder()
     for i, ch in enumerate(cleaned):
         if ch == "{":
@@ -529,6 +542,26 @@ def _extract_first_json_object(text: str) -> Optional[dict]:
                     return obj
             except Exception:
                 continue
+
+    # 3) Python literal eval (fallback for single quotes, etc.)
+    try:
+        obj = ast.literal_eval(cleaned)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # 4) Literal eval on substring between first "{" and last "}"
+    try:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            obj = ast.literal_eval(cleaned[start:end + 1])
+            if isinstance(obj, dict):
+                return obj
+    except Exception:
+        pass
+
     return None
 
 def _llm_crisis_check(user_input: str) -> Dict:
@@ -541,11 +574,13 @@ def _llm_crisis_check(user_input: str) -> Dict:
         "{ \"is_crisis\": true|false, \"category\": \"SUICIDE\"|\"MEDICAL_EMERGENCY\"|\"NONE\" }\n"
         "Rules:\n"
         "- SUICIDE if self-harm/suicidal intent is present.\n"
-        "- MEDICAL_EMERGENCY if severe physical symptoms suggest urgent medical danger "
-        "(e.g., chest pain, can't breathe, left arm numbness, heart attack, stroke, severe bleeding).\n"
+        "- MEDICAL_EMERGENCY if severe physical symptoms suggest urgent medical danger.\n"
         "- NONE if not a crisis.\n"
         "- Treat figurative language as NONE (e.g., 'I'm dying of laughter', 'this workload is killing me').\n"
-        "- If the user reports chest pain + arm numbness, or can't breathe, or signs of stroke/seizure/unconsciousness: MEDICAL_EMERGENCY.\n"
+        "- Panic/acute anxiety symptoms alone are NOT a medical emergency: racing heart, feeling short of breath, trembling, tingling, fear of dying, "
+        "or 'I think I'm having a panic attack' should be NONE unless combined with red-flag signs.\n"
+        "- Red-flag signs that should be MEDICAL_EMERGENCY (even if user mentions panic): chest pain with left arm numbness, severe chest pain, "
+        "loss of consciousness, seizure, stroke signs, severe bleeding, choking/not breathing.\n"
         "- If unsure but there are red-flag physical symptoms, choose MEDICAL_EMERGENCY."
     )
     try:
@@ -829,35 +864,13 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
         log_debug(f"DEBUG: LLM Response length: {len(content) if content else 0} chars")
         
         # Parse JSON with security validation
-        import re
-        def _extract_json_object(text: str) -> Optional[str]:
-            """Extract the first JSON object from text, or return None."""
-            if not text:
-                return None
-            cleaned = text.replace("```json", "").replace("```", "").strip()
-            # Fast path: whole string is JSON
-            try:
-                json.loads(cleaned)
-                return cleaned
-            except Exception:
-                pass
-            decoder = json.JSONDecoder()
-            for i, ch in enumerate(cleaned):
-                if ch == "{":
-                    try:
-                        obj, _end = decoder.raw_decode(cleaned[i:])
-                        return json.dumps(obj)
-                    except Exception:
-                        continue
-            return None
-
-        extracted = _extract_json_object(content)
-        if extracted:
-            content = extracted
+        parsed = _extract_first_json_object(content or "")
         
         # Security: Safe JSON parsing with whitelist validation
         try:
-            llm_output = json.loads(content)
+            if not parsed:
+                raise json.JSONDecodeError("No JSON object found", content or "", 0)
+            llm_output = parsed
             # Whitelist validation - only allow expected keys
             allowed_keys = {
                 "technique_id", "empathy_line", "reason_line", 

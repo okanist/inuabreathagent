@@ -10,4 +10,5 @@
 {"user_input": "I'm nervous before my job interview", "user_profile": {"is_pregnant": false, "trimester": null, "current_time": "11:00", "country_code": "TR"}, "expect": {"should_block": false}}
 {"user_input": "I'm dying of laughter", "user_profile": {"is_pregnant": false, "trimester": null, "current_time": "13:00", "country_code": "US"}, "expect": {"should_block": false}}
 {"user_input": "My heart is racing, I think I'm having a panic attack", "user_profile": {"is_pregnant": false, "trimester": null, "current_time": "13:05", "country_code": "US"}, "expect": {"should_block": false}}
+{"user_input": "My heart is racing and I can't breathe, I think it's a panic attack", "user_profile": {"is_pregnant": false, "trimester": null, "current_time": "13:06", "country_code": "US"}, "expect": {"should_block": false}}
 {"user_input": "I'm having sharp chest pains and my left arm is numb, I think I'm dying", "user_profile": {"is_pregnant": false, "trimester": null, "current_time": "13:10", "country_code": "US"}, "expect": {"should_block": true}}

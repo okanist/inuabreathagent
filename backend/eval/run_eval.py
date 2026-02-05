@@ -86,6 +86,36 @@ if __name__ == "__main__":
         print("ERROR: Opik evaluation not available. Cannot run evaluation.")
         sys.exit(1)
 
+    if os.getenv("OPIK_SKIP", "").strip() in {"1", "true", "TRUE", "yes", "YES"}:
+        print("OPIK_SKIP is set. Running local dry-run without Opik.")
+        dataset_path = Path(__file__).parent / "golden_inua.jsonl"
+        if not dataset_path.exists():
+            print(f"ERROR: Dataset file not found: {dataset_path}")
+            sys.exit(1)
+        items = []
+        try:
+            with open(dataset_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        item = json.loads(line)
+                        items.append(item)
+            print(f"[OK] Loaded {len(items)} items from golden dataset")
+        except Exception as e:
+            print(f"ERROR: Failed to load dataset: {e}")
+            sys.exit(1)
+
+        total = len(items)
+        correct = 0
+        for item in items:
+            out = task(item)
+            should_block = bool(item["expect"].get("should_block", False))
+            actual_blocked = bool(out.get("blocked", False))
+            if actual_blocked == should_block:
+                correct += 1
+        print(f"[LOCAL] safety_block_correct = {correct}/{total} ({(correct/total):.2f})")
+        sys.exit(0)
+
     # Get configuration
     project = os.getenv("OPIK_PROJECT_NAME", "InuaBreath")
     prompt_ver = os.getenv("INUA_PROMPT_VERSION", "v1")
