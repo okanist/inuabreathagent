@@ -1,89 +1,65 @@
-# 🌬️ Inua Breathing Agent
+# Inua - Breathing and Grounding Coach
 
-> **When you're overwhelmed, you shouldn't have to research a solution. Inua is the instant coach that knows exactly what you need.**
+> When you feel overwhelmed, Inua helps you find the safest, most effective technique for the moment.
 
 ![Status](https://img.shields.io/badge/Status-Hackathon_MVP-blue) ![Stack](https://img.shields.io/badge/Tech-LLM_Agent-purple) ![Safety](https://img.shields.io/badge/Safety-Guarded-green)
 
-## Why Inua?
+## Project Summary
+Inua is a health, fitness, and wellness assistant that guides users through breathing and grounding practices to reduce stress, improve focus, and support sleep. The system is safety-first, with explicit guardrails for pregnancy and crisis situations. It combines deterministic safety rules, a curated technique database, and LLM-based selection to deliver the right technique at the right time.
 
-Finding the right mindfulness technique requires research and clarity—two things you lack when you are stressed, exhausted, or unfocused.
+This project was built for the Health, Fitness & Wellness track and the Best Use of Opik award.
 
-* **The Reality:** A user navigating a sudden mood shift or late-night insomnia doesn't have the mental capacity to browse a library of 50 files to find the "right" one. They are experiencing **decision fatigue**.
-* **The Solution:** Inua acts as an **instant prescription**. You don't browse; you just say "I'm furious" or "I can't sleep." The Agent handles the cognitive load, instantly selecting the safest, most effective grounding or breathing technique for that specific moment.
+## Why It Matters
+When users are stressed or exhausted, they cannot afford decision fatigue. Inua reduces that burden by:
+- Choosing a technique based on context and time of day
+- Avoiding unsafe recommendations in pregnancy
+- Escalating to emergency messaging for crisis inputs
+- Providing clear, short guidance that is easy to follow
 
-It uses LLMs to reason about your safety and context *before* it suggests a practice. If you tell it you're stressed, it checks *why*. If you tell it you're tired, it checks the *time*. It acts like a responsible coach, not a music player.
+## Core Features
+- Context-aware technique selection (time of day, pregnancy mode)
+- Crisis detection with emergency override
+- Deterministic safety rules and technique normalization
+- Human feedback loop (helpful / not helpful)
+- Opik observability: traces, metrics, and experiments
 
----
+## Safety and Responsibility
+Inua is a wellness tool, not a medical device.
+- No diagnostic claims
+- Crisis inputs trigger emergency override
+- Pregnancy mode removes breath holds
 
-##  What makes it special?
+For security posture and safeguards, see `SECURITY.md`.
 
-### 1. It knows when to say "No" (Pregnancy Guardrails) 
-Safety isn't an afterthought. If Inua detects pregnancy context (via profile or chat), it activates a **hard filter**.
-* **The Guardrail:** It physically cannot suggest breath retention (Kumbhaka) or intense abdominal pumps.
-* **The Pivot:** It automatically swaps those out for grounding, safe alternatives without breaking the flow.
+## Opik Integration
+We use Opik to measure and monitor system quality:
+- Traces and spans for the full agent pipeline
+- Metadata for model and prompt versions
+- Automated safety metrics
+- Human feedback scores
+- Online evaluation rules (LLM-as-judge)
+- Mini dataset experiments (prompt version comparisons)
 
-### 2. It understands nuance (Semantic Detection) 
-"I'm dying of laughter" and "My chest hurts" trigger very different responses.
-* **Standard apps:** might offer a "Heart Healing" meditation for both.
-* **Inua:** Recognizes the medical risk in the second phrase, stops the session, and triggers a safety disclaimer.
+See details in `OPIK_INTEGRATION.md`.
 
-### 3. It negotiates with you (Chrono-Adaptation) 
-This is our favorite feature. Inua respects your circadian rhythm (Active window: 6 AM - 8 PM).
-* **Scenario:** You ask for "Intense Focus" at 2:00 AM.
-* **Inua's Move:** It won't just obey. It pushes back: *"It's late, and high intensity now will ruin your sleep. Let's try 'Gentle Alertness' instead to keep you awake but calm."*
+## Demo and Installation
+- Web demo: https://inuabreathagent.vercel.app/
+- Android APK: `Inua.apk`
+- Full setup steps: `INSTALLATION_GUIDE.md`
+ - Engineering notes: `ENGINEERING_NOTES.md`
 
-###  4. Somatic & Grounding Integration 
-Inua knows that sometimes, focusing on the breath is too intense.
-* **Tactile Anchoring:** Uses physical touch (e.g., "Place a hand on your heart," "Feel your feet on the floor") to ground users who are dissociating or panicked.
-* **The "Panic Switch":** If the Agent detects acute distress, it abandons complex breath counts and shifts to simple, physical grounding techniques to lower cortisol immediately.
----
+## Tech Stack
+- FastAPI backend
+- React Native app (Expo)
+- Opik for tracing, evaluation, and experiments
+- IO Intelligence API for LLM inference
 
-## 🛠️ Under the Hood
-
-We built Inua to prove that AI can be safe if you have the right observability.
-
-| Tech | Why we used it |
-| :--- | :--- |
-| **LLM Agent** | To handle the logic of "Context -> Validation -> Suggestion." |
-| **Opik** | **The MVP of our stack.** We can't fix what we can't see. We use Opik to trace the agent's thought process. It lets us prove to judges (and ourselves) that the pregnancy guardrails triggered *exactly* when they were supposed to. |
-| **React Native** | For a smooth mobile experience on iOS and Android. |
-
----
-
-## Important Disclaimer
-
-**Inua is a wellness tool, not a doctor.**
-We built this for the hackathon to demonstrate safe AI architecture. It does not diagnose or treat medical conditions. Always consult a professional for health issues.
-
----
-
-##  Getting Started
-
-###  Try it Live (No Installation)
-Want to see Inua in action right now? You can chat with the agent directly in your browser:
-
-👉 **[Launch Live Demo](https://inuabreathagent.vercel.app/)**
-
-*(Try asking it for a "Focus" session, or tell it you are "exhausted" to see how it adapts!)*
+## Hackathon Alignment
+- Functionality: end-to-end app flow (chat -> technique -> session -> feedback)
+- Real-world relevance: stress, sleep, and wellness support
+- LLM/Agent usage: safe technique selection and empathy generation
+- Evaluation and observability: Opik tracing, scores, and experiments
+- Safety: crisis guardrails and pregnancy-safe normalization
 
 ---
-
-###  Run it Locally
-Prefer to look under the hood? Run the full mobile simulator:
-
-1.  **Clone the repo:**
-    ```bash
-    git clone [https://github.com/okanist/inuabreathagent.git](https://github.com/okanist/inuabreathagent.git)
-    ```
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-3.  **Launch the simulator:**
-    ```bash
-    npm run android
-    ```
----
-*Hackathon submission by Inua Team.*
----
-**Built for the Commit To Change: An AI Agents Hackathon 2026, organized by Encode Club.**
+Built for the Commit To Change: AI Agents Hackathon 2026 (Encode Club)
