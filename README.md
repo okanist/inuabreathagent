@@ -10,35 +10,107 @@ Inua is a health, fitness, and wellness assistant that guides users through brea
 This project was built for the Health, Fitness & Wellness track and the Best Use of Opik award.
 
 ## Why It Matters
-When users are stressed or exhausted, they cannot afford decision fatigue. Inua reduces that burden by:
-- Choosing a technique based on context and time of day
-- Avoiding unsafe recommendations in pregnancy
-- Escalating to emergency messaging for crisis inputs
-- Providing clear, short guidance that is easy to follow
+# Inua Breathing Agent
 
-## Core Features
-- Context-aware technique selection (time of day, pregnancy mode)
-- Crisis detection with emergency override (two-stage: keyword fast-path + LLM intent classifier fallback)
-- Deterministic safety rules and technique normalization
-- Human feedback loop (helpful / not helpful)
-- Opik observability: traces, metrics, and experiments
+When the brain is in **alarm mode**, it needs a **precise intervention**, not a conversation.  
+**Inua** automates the path to regulation within strict biological and safety boundaries.
 
-## Safety and Responsibility
-Inua is a wellness tool, not a medical device.
-- No diagnostic claims
-- Crisis inputs trigger emergency override (separate guardrail, independent from technique selection)
-- Pregnancy mode removes breath holds
+---
 
-For security posture and safeguards, see `SECURITY.md`.
+## The Problem: Cognitive Paralysis
 
-## Opik Integration
-We use Opik to measure and monitor system quality:
-- Traces and spans for the full agent pipeline
-- Metadata for model and prompt versions
-- Automated safety metrics
-- Human feedback scores
-- Online evaluation rules (LLM-as-judge)
-- Mini dataset experiments (prompt version comparisons)
+In moments of acute stress or panic, the **prefrontal cortex** (the brain’s decision-making center) can be compromised. In this state, users can’t browse a library of exercises or evaluate options.
+
+They need an agent that can:
+- assess distress quickly,
+- choose **one** safe path,
+- deliver **immediate** guidance back to stability.
+
+---
+
+## The Solution: Autonomous Decision Engine
+
+Inua is a dedicated wellness agent that eliminates the **choice gap** by acting as an intelligent bridge between distress and recovery.
+
+It processes user input through a high-performance decision pipeline governed by strict:
+- biological constraints,
+- physical safety constraints,
+- deterministic guardrails.
+
+---
+
+## Our Mission: Elevating Quality of Life
+
+Inua’s objective isn’t only momentary relief — it’s **building emotional resilience** so quality of life becomes sustainable.
+
+- **Empowering Resilience:** a “safe space” where users can manage crisis moments independently  
+- **Zero-Friction Support:** technology that aligns with biological rhythms  
+- **Safety as a Standard:** a safety-first engineering mindset for sensitive states (e.g., pregnancy mode, potential crises)
+
+---
+
+## Decision Pipeline Overview
+
+Inua follows a multi-layered execution flow where **safety** and **adaptation** are deterministic:
+
+1. **Two-Stage Safety Guardrail**
+   - **Fast-Path (Keyword Filter):** zero-latency detection of high-risk language for emergency triggers
+   - **Fallback (LLM Intent Classifier):** distinguishes metaphorical distress (e.g., “I’m dying of exhaustion”) from acute clinical crisis (e.g., “sharp chest pains”)
+
+2. **Emergency Override**
+   - If crisis is detected, Inua exits the normal flow and returns **help resources**.
+
+3. **Context Injection**
+   - Safe inputs are enriched with:
+     - **Circadian Context** (time of day)
+     - **Pregnancy Mode** (user profile)
+
+4. **Technique Adaptation & Normalization**
+   - The engine doesn’t just filter techniques — it **modifies** them:
+     - removes unsafe phases (e.g., breath-holds),
+     - recalculates timing and flow in real time,
+     - preserves the original intent (e.g., calming down-regulation).
+
+5. **Autonomous Execution**
+   - The final intervention is delivered **only within verified boundaries**.
+
+6. **Observability**
+   - The pipeline is traceable via **Opik** for evaluation and reliability.
+
+---
+
+## Circadian-Aware Intelligence
+
+Inua uses circadian rhythm as a primary decision filter:
+
+- **Contextual Prioritization:**  
+  prioritizes **Up-Regulation** (alertness/focus) during daytime and **Down-Regulation** (parasympathetic activation) at night.
+
+- **Dynamic Focus:**  
+  if a user needs focus at night, Inua selects **Calm Focus** interventions that support concentration without overstimulating the nervous system or disrupting sleep preparation.
+
+---
+
+## Specialized Safety: Pregnancy Mode (Adaptive Safety)
+
+### Risk
+Breathing techniques involving **Kumbhaka (breath retention)** can restrict oxygen flow and are generally discouraged during pregnancy.
+
+### Adaptive Solution
+If a technique such as **4-7-8 breathing** is selected, Inua automatically:
+- strips the hold phase,
+- recalculates instructions for a continuous, safe flow of breath,
+- maintains the technique’s calming intent without retention.
+
+---
+
+## 📊 Observability & Reliability (Opik)
+
+We use **Opik** to ensure the agent stays within defined biological and safety boundaries:
+
+- **Guardrail Performance:** track Fast-Path triggers vs. LLM classifier usage (latency + accuracy optimization)
+- **Constraint Validation:** automated scoring for pregnancy-safe compliance and “hold-phase stripping” accuracy
+- **Traceable Reasoning:** visualize why a technique was chosen and how it was modified, enabling transparent evaluation of decisions
 
 See details in `OPIK_INTEGRATION.md`.
 
