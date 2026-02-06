@@ -8,6 +8,7 @@ We use Opik to:
 - Log metadata (model/prompt versions, user context, selected technique)
 - Record evaluation scores (safety compliance, pregnancy safety, technique validity)
 - Attach human feedback (post-exercise helpful/not helpful) to the original trace
+We also capture intent-based prioritization (sleep/energy/focus/calm) in the prompt to bias safe technique selection.
 
 Key backend file: `backend/server.py`
 

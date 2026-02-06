@@ -682,13 +682,106 @@ def generate_response(request: UserRequest):
     
     if not candidates:
         return {"message_for_user": "I'm here to help you relax.", "duration_seconds": 180}
-    
+
+    # Heuristic: detect intent and bias toward relevant categories if available
+    focus_patterns = [
+        r"\bfocus\b",
+        r"\bconcentrat(e|ion)\b",
+        r"\bstudy\b",
+        r"\bdeep work\b",
+        r"\bproductiv(e|ity)\b",
+        r"\battention\b",
+        r"\bmental clarity\b",
+    ]
+    sleep_patterns = [
+        r"\bsleep\b",
+        r"\binsomnia\b",
+        r"\bcan't sleep\b",
+        r"\bcan’t sleep\b",
+        r"\brest\b",
+        r"\bbedtime\b",
+        r"\bnight\b",
+    ]
+    energy_patterns = [
+        r"\benergy\b",
+        r"\benergized\b",
+        r"\bawake\b",
+        r"\bwake up\b",
+        r"\bfatigue\b",
+        r"\btired\b",
+        r"\bsluggish\b",
+        r"\blow energy\b",
+        r"\balert\b",
+    ]
+    calm_patterns = [
+        r"\bcalm\b",
+        r"\brelax\b",
+        r"\bsoothe\b",
+        r"\bground(ing)?\b",
+        r"\bsteady\b",
+        r"\bbalance\b",
+    ]
+
+    sleep_intent = any(re.search(p, request.user_input, re.IGNORECASE) for p in sleep_patterns)
+    energy_intent = any(re.search(p, request.user_input, re.IGNORECASE) for p in energy_patterns)
+    focus_intent = any(re.search(p, request.user_input, re.IGNORECASE) for p in focus_patterns)
+    calm_intent = any(re.search(p, request.user_input, re.IGNORECASE) for p in calm_patterns)
+
+    intent_label = None
+    preferred_categories: list[str] = []
+    # Priority: sleep > energy > focus > calm
+    if sleep_intent:
+        intent_label = "sleep"
+        preferred_categories = ["sleep"]
+    elif energy_intent:
+        intent_label = "energy"
+        preferred_categories = ["energy"]
+    elif focus_intent:
+        intent_label = "focus"
+        preferred_categories = ["focus"]
+    elif calm_intent:
+        intent_label = "calm"
+        preferred_categories = ["balance", "somatic"]
+
+    if preferred_categories:
+        preferred_set = set(preferred_categories)
+        preferred = [t for t in candidates if (t.get("category") or "").lower() in preferred_set]
+        if preferred:
+            non_preferred = [t for t in candidates if t not in preferred]
+            candidates = preferred + non_preferred
+            # Rebuild techniques_str to reflect new ordering for the LLM
+            safe_list = []
+            for tech in candidates:
+                tech_id = tech.get("id", "")
+                title = tech.get("title", "")
+                agent_config = tech.get("agent_config", {})
+                phases = tech.get("phases", {})
+                inhale = phases.get("inhale_sec", 4)
+                hold_in = phases.get("hold_in_sec", 0)
+                exhale = phases.get("exhale_sec", 4)
+                hold_out = phases.get("hold_out_sec", 0)
+                if hold_in > 0 or hold_out > 0:
+                    instruction_text = f"Inhale {inhale}s, Hold {hold_in}s, Exhale {exhale}s, Hold {hold_out}s"
+                else:
+                    instruction_text = f"Inhale {inhale}s, Exhale {exhale}s (no holding)"
+                entry = (
+                    f"- ID: {tech_id} | Name: {title}\n"
+                    f"  Purpose: {agent_config.get('purpose', 'General relaxation')}\n"
+                    f"  Instruction: {instruction_text}"
+                )
+                safe_list.append(entry)
+            techniques_str = "\n".join(safe_list)
+
     # C. LLM Inference with Opik tracing
     log_debug(f"DEBUG: Calling LLM ({INUA_MODEL_VERSION}) with {len(candidates)} candidates...")
     
     # Build prompt based on version
     if INUA_PROMPT_VERSION == "v3":
         # v3 final prompt
+        category_note = ""
+        if preferred_categories:
+            cats = ", ".join(preferred_categories)
+            category_note = f"- If the user asks for {intent_label}, prioritize techniques in these categories when safe and available: {cats}."
         system_prompt = f"""You are Inua, a calm, empathetic, and safety-first Somatic Breath Coach.
 
 Your role is to SELECT the single most appropriate breathing technique
@@ -706,6 +799,7 @@ SAFETY RULES (STRICT):
   - All breath-hold phases have already been removed in the provided techniques.
 - Do NOT encourage breath holding, strain, or discomfort.
 - If no technique clearly matches, choose the most calming SAFE option.
+{category_note}
 
 AVAILABLE TECHNIQUES (Already safety-filtered):
 {techniques_str}
@@ -736,6 +830,10 @@ No markdown. No extra text. No explanations outside JSON.
         pregnancy_note = ""
         if request.user_profile.is_pregnant:
             pregnancy_note = "\n\nCRITICAL PREGNANCY RULES:\n- You MUST NOT choose techniques where pregnancy_logic is BLOCK.\n- Prefer SAFE or MODIFY_APPLIED techniques only.\n- When pregnant, hold phases must be 0 (already applied in candidate list)."
+        category_note = ""
+        if preferred_categories:
+            cats = ", ".join(preferred_categories)
+            category_note = f"\n\nCATEGORY PRIORITY:\n- If the user asks for {intent_label}, prioritize techniques in these categories when safe and available: {cats}."
         
         system_prompt = f"""You are 'Inua', an expert Somatic Breath Coach.
 Analyze the user's emotional state and select the BEST matching breathing technique ID from the available list.
@@ -743,7 +841,7 @@ Analyze the user's emotional state and select the BEST matching breathing techni
 ### USER CONTEXT
 - Pregnant: {request.user_profile.is_pregnant}
 - Time: {request.user_profile.current_time}
-{pregnancy_note}
+{pregnancy_note}{category_note}
 
 ### AVAILABLE TECHNIQUES
 {techniques_str}
@@ -764,12 +862,17 @@ Return ONLY the raw JSON object. Do not wrap in markdown code blocks. Do not add
 }}"""
     else:
         # v1 prompt
+        category_note = ""
+        if preferred_categories:
+            cats = ", ".join(preferred_categories)
+            category_note = f"\n\nCATEGORY PRIORITY:\n- If the user asks for {intent_label}, prioritize techniques in these categories when safe and available: {cats}."
         system_prompt = f"""You are 'Inua', an expert Somatic Breath Coach.
 Analyze the user's emotional state and select the BEST matching breathing technique ID from the available list.
 
 ### USER CONTEXT
 - Pregnant: {request.user_profile.is_pregnant} (CRITICAL: If true, NO BREATH HOLDING allowed)
 - Time: {request.user_profile.current_time}
+{category_note}
 
 ### AVAILABLE TECHNIQUES
 {techniques_str}

@@ -53,6 +53,7 @@ Inua’s objective isn’t only momentary relief — it’s **building emotional
 Architecture diagram: [`docs/architecture.md`](docs/architecture.md).
 
 Inua follows a multi-layered execution flow where **safety** and **adaptation** are deterministic:
+It also applies soft intent-based prioritization (sleep/energy/focus/calm) to bias safe technique choice.
 
 1. **Two-Stage Safety Guardrail**
    - **Fast-Path (Keyword Filter):** zero-latency detection of high-risk language for emergency triggers
