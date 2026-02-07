@@ -21,6 +21,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Local presentation drafts
+presentation/
+
 # Python / Backend
 __pycache__/
 *.py[cod]
