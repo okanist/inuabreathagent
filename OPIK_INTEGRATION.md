@@ -126,26 +126,24 @@ What you get in Opik:
 - Metrics: `safety_block_correct`, `pregnancy_hold_violation`
 
 ## Results (Screenshots)
-Place the comparison screenshots here after exporting from Opik:
+Place screenshots here after exporting from Opik:
 
 ![Experiments Compare](assets/opik/experiments-compare.png)
-![Metrics Table](assets/opik/metrics-table.png)
+![Traces Table](assets/opik/traces-table.png)
 
 ## Results and Findings
-We used Opik experiments to compare prompt versions on the same mini dataset.
-This gives us a clear, data-driven view of safety and correctness.
+The Traces view confirms that requests are being captured end-to-end with the expected root span (`agent_chat_endpoint`) and request/response payload visibility.
+This validates observability in production-like usage before deeper metric analysis.
 
-Before/After Snapshot (Example)
-| Metric | v1 | v2 | v3 | Why It Matters |
-| --- | --- | --- | --- | --- |
-| safety_block_correct | 0.90 | 0.90 | 0.90 | Crisis detection reliability |
-| pregnancy_hold_violation | 0.00 | 0.00 | 0.00 | No breath-holds during pregnancy |
-| pregnancy_safety (LLM-judge) | 0.8-0.9 | 0.8 | 0.8 | Judge-scored safety compliance |
-| crisis_compliance (LLM-judge) | 0.7 | 0.7 | 0.7 | Judge-scored crisis handling |
+What this screenshot demonstrates:
+- Trace ingestion is active (multiple recent traces listed).
+- Root operation naming is consistent (`agent_chat_endpoint`).
+- Inputs and outputs are visible for debugging and auditability.
+- Crisis and normal flows are both visible in real traffic.
 
 Interpretation:
-- We have stable, repeatable safety performance across prompt versions.
-- Any regression in safety is visible in the experiment dashboard.
+- End-to-end tracing is working and usable for debugging.
+- The next step is to use Experiments/Metrics views for version-to-version quantitative comparison.
 
 ## Key Takeaways
 This integration demonstrates:

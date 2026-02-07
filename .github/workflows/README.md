@@ -1,75 +1,72 @@
-# GitHub Actions Deployment
+﻿# GitHub Actions Deployment
 
 ## Setup
 
-### 1. GitHub Secrets Ayarla
+### 1. Configure GitHub Secrets
+Go to: `Settings -> Secrets and variables -> Actions`
 
-GitHub repo'da **Settings → Secrets and variables → Actions** bölümüne git ve şu secret'ları ekle:
+Add these secrets:
+- `VPS_HOST`: your server IP or domain (for example: `203.0.113.10`)
+- `VPS_USER`: your SSH username (for example: `deploy`)
+- `VPS_SSH_KEY`: private SSH key used by GitHub Actions
 
-- **VPS_HOST**: `152.53.231.1` (VPS IP adresi)
-- **VPS_USER**: `okan` (SSH kullanıcı adı)
-- **VPS_SSH_KEY**: SSH private key (VPS'e erişim için)
-
-### 2. SSH Key Oluşturma (Eğer yoksa)
-
+### 2. Create SSH Key (if needed)
 ```bash
-# Yeni SSH key oluştur
+# Create a new SSH key pair
 ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions
 
-# Public key'i VPS'e ekle
-ssh-copy-id -i ~/.ssh/github_actions.pub okan@152.53.231.1
+# Copy public key to server
+ssh-copy-id -i ~/.ssh/github_actions.pub <VPS_USER>@<VPS_HOST>
 
-# Private key'i GitHub Secrets'a ekle
+# Copy private key content and store it in GitHub Secret: VPS_SSH_KEY
 cat ~/.ssh/github_actions
-# Çıktıyı kopyala ve VPS_SSH_KEY secret'ına yapıştır
 ```
 
-### 3. VPS'te İlk Kurulum
-
-VPS'te ilk kez:
-
+### 3. First-Time Server Setup
 ```bash
 cd ~
-git clone https://github.com/okanist/inuabreathagent.git inua-breath-backend
+git clone <YOUR_REPOSITORY_URL> inua-breath-backend
 cd inua-breath-backend/backend
 
-# .env dosyasını oluştur
+# Create environment file
 cp .env.example .env
-nano .env  # API key'lerini gir
+nano .env
 
-# Docker container'ları başlat
+# Start containers
 docker compose up -d
 ```
 
-## Kullanım
-
-Her `backend/` klasöründe değişiklik yapıp `main` branch'ine push yaptığında:
-
-1. GitHub Actions otomatik çalışır
-2. VPS'e SSH ile bağlanır
-3. Git pull yapar
-4. Docker container'ları rebuild eder
-5. Container'ları yeniden başlatır
+## Usage
+When you push changes to `main` (or your configured branch), GitHub Actions will:
+1. Start the deployment workflow.
+2. Connect to the server via SSH.
+3. Pull latest changes.
+4. Rebuild containers.
+5. Restart services.
 
 ## Monitoring
-
-- GitHub Actions sekmesinde deployment durumunu görebilirsin
-- VPS'te logları kontrol et: `docker compose logs -f`
+- Check workflow runs in the GitHub Actions tab.
+- On server: `docker compose logs -f`
 
 ## Troubleshooting
 
 ### SSH Connection Failed
-- SSH key'in doğru olduğundan emin ol
-- VPS firewall'unda port 22 açık mı kontrol et
+- Verify `VPS_SSH_KEY`, `VPS_HOST`, and `VPS_USER` secrets.
+- Check firewall and SSH port access.
 
 ### Git Pull Failed
-- VPS'te git repository var mı kontrol et
-- İlk kurulum adımlarını yap
+- Verify repository exists on server.
+- Verify branch and remote settings.
 
 ### Docker Build Failed
-- VPS'te Docker ve Docker Compose kurulu mu kontrol et
-- Disk alanı yeterli mi kontrol et
+- Verify Docker and Docker Compose are installed.
+- Check available disk space.
 
 ### Health Check Failed
-- Container loglarını kontrol et: `docker compose logs`
-- Port 8001 kullanımda mı kontrol et: `sudo lsof -i :8001`
+- Check service logs: `docker compose logs`
+- Check port usage (example): `sudo lsof -i :8001`
+
+## Security Notes
+- Do not store real server IP, usernames, tokens, or keys in repository files.
+- Keep sensitive values only in GitHub Secrets.
+- Rotate SSH keys immediately if they were exposed.
