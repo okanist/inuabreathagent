@@ -126,8 +126,6 @@ What you get in Opik:
 - Metrics: `safety_block_correct`, `pregnancy_hold_violation`
 
 ## Results (Screenshots)
-Place screenshots here after exporting from Opik:
-
 ![Experiments Compare](assets/opik/experiments-compare.png)
 ![Traces Table](assets/opik/traces-table.png)
 
